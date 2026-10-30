@@ -1,0 +1,2699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>未央社 · 社团任务管理系统</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+if (typeof tailwind !== 'undefined') {
+  tailwind.config = {
+    theme: {
+      extend: {
+        /* ===== 深色主题色板：小色阶=深色表面/描边，大色阶=浅色文字 ===== */
+        colors: {
+          zinc: {
+            50:'#0b0b0e', 100:'#1c1c23', 200:'#262630', 300:'#33333f',
+            400:'#7e7e8c', 500:'#9494a2', 600:'#adadb9', 700:'#c6c6d1',
+            800:'#dcdce4', 900:'#f1f1f5', 950:'#ffffff'
+          },
+          ink: { 950:'#000000', 900:'#f4f4f7', 800:'#d2d2dc', 700:'#3a3a45' },
+          emerald: { 50:'rgba(52,211,153,.12)', 100:'rgba(52,211,153,.26)', 600:'#10b981' },
+          amber:   { 50:'rgba(251,191,36,.13)', 100:'rgba(251,191,36,.26)' },
+          blue:    { 50:'rgba(96,165,250,.13)', 100:'rgba(96,165,250,.26)' },
+          red:     { 50:'rgba(248,113,113,.13)', 100:'rgba(248,113,113,.26)', 300:'rgba(248,113,113,.42)', 500:'#f87171' }
+        },
+        boxShadow: {
+          soft:'0 1px 0 rgba(255,255,255,.055) inset, 0 2px 6px rgba(0,0,0,.28), 0 10px 26px -10px rgba(0,0,0,.50)',
+          lift:'0 1px 0 rgba(255,255,255,.09) inset, 0 16px 44px -12px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.07)'
+        }
+      }
+    }
+  };
+}
+</script>
+<style>
+  /* ==================== 设计令牌 ==================== */
+  :root{
+    color-scheme:dark;
+    /* 玻璃：极低不透明度的冷灰，靠背景光斑"透"出层次 */
+    --g-panel:   rgba(30,30,38,.52);
+    --g-raised:  rgba(38,38,47,.62);
+    --g-rail:    rgba(8,8,11,.66);
+    --g-line:    rgba(255,255,255,.085);
+    --g-line-hi: rgba(255,255,255,.22);
+    /* 高级感强调色：冷蓝 + 淡紫，仅用于光晕/聚焦/激活，不铺满 */
+    --accent:    #8ab4ff;
+    --accent-2:  #c4b5fd;
+    --aqua:      #7fe7f0;
+    --txt-hi:    #f2f2f6;
+    --txt-mid:   #a9a9b6;
+    --txt-low:   #74747f;
+  }
+
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background-color:#08080b !important;
+    /* 极光底：三团超大柔光，让玻璃有东西可折射 */
+    background-image:
+      radial-gradient(1100px 720px at 10% -12%, rgba(138,180,255,.15), transparent 62%),
+      radial-gradient(900px 620px at 95% 2%,   rgba(196,181,253,.12), transparent 60%),
+      radial-gradient(1000px 780px at 55% 112%, rgba(127,231,240,.085), transparent 62%);
+    background-attachment:fixed;
+  }
+  /* 细颗粒噪点，消除大面积渐变的塑料感 */
+  body::after{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.035;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  }
+  body>*{position:relative;z-index:1}
+  .is-hidden{display:none !important}
+  [hidden]{display:none !important}
+  .clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:99px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
+  .fade-in{animation:fade .24s cubic-bezier(.22,1,.36,1)}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ==================== 切屏转场 ==================== */
+  #main{transform-origin:top center}
+  /* 退场：轻上浮 + 淡出，短促利落 */
+  .page-exit{animation:pageOut .17s cubic-bezier(.4,0,1,1) both;will-change:opacity,transform}
+  @keyframes pageOut{
+    from{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}
+    to{opacity:0;transform:translate3d(0,-10px,0) scale(.992);filter:blur(3px)}
+  }
+  /* 进场：从下方浮现 + 解除模糊，营造"页面逐渐出现" */
+  .page-enter{animation:pageIn .5s cubic-bezier(.22,1,.36,1) both;will-change:opacity,transform}
+  @keyframes pageIn{
+    from{opacity:0;transform:translate3d(0,18px,0) scale(.986);filter:blur(7px)}
+    55%{filter:blur(0)}
+    to{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}
+  }
+  /* 内容块逐个错峰浮现。
+     刻意用独立的 translate 属性而非 transform：这样即使动画期间 hover，
+     卡片自身的 hover:-translate-y 也能正常叠加，不会被动画锁死位移。 */
+  .stg{animation:stgIn .52s cubic-bezier(.22,1,.36,1) both}
+  @keyframes stgIn{
+    from{opacity:0;translate:0 22px}
+    to{opacity:1;translate:0 0}
+  }
+  /* 有分块错峰时容器只淡入，位移交给子块 */
+  .page-enter-soft{animation:pageInSoft .34s ease-out both}
+  @keyframes pageInSoft{
+    from{opacity:0;filter:blur(6px)}
+    to{opacity:1;filter:blur(0)}
+  }
+  /* 侧边栏激活胶囊淡入：配合光晕滑动，避免硬切 */
+  .nav-active-in{animation:navIn .32s cubic-bezier(.22,1,.36,1) both}
+  @keyframes navIn{from{opacity:0;transform:scale(.965)}to{opacity:1;transform:none}}
+
+  /* 弹窗进出场：与切屏同一套缓动语言 */
+  .modal-in{animation:modalIn .36s cubic-bezier(.22,1,.36,1) both}
+  @keyframes modalIn{
+    from{opacity:0;transform:translate3d(0,16px,0) scale(.962);filter:blur(7px)}
+    58%{filter:blur(0)}
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  .modal-out{animation:modalOut .18s cubic-bezier(.4,0,1,1) both}
+  @keyframes modalOut{
+    to{opacity:0;transform:translate3d(0,8px,0) scale(.978);filter:blur(3px)}
+  }
+  .backdrop-in{animation:bdIn .3s ease-out both}
+  @keyframes bdIn{from{opacity:0}to{opacity:1}}
+  .backdrop-out{animation:bdOut .2s ease-in both}
+  @keyframes bdOut{to{opacity:0}}
+
+  /* 同页刷新：轻微脉冲，不做整屏重入 */
+  .page-pulse{animation:pagePulse .34s cubic-bezier(.22,1,.36,1) both}
+  @keyframes pagePulse{
+    0%{opacity:.82;transform:scale(.994)}
+    100%{opacity:1;transform:scale(1)}
+  }
+  /* 登录 ↔ 应用 的整屏转场 */
+  .view-enter{animation:viewIn .58s cubic-bezier(.22,1,.36,1) both}
+  @keyframes viewIn{
+    from{opacity:0;transform:translate3d(0,16px,0) scale(.99);filter:blur(8px)}
+    60%{filter:blur(0)}
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .page-exit,.page-enter,.page-enter-soft,.stg,.page-pulse,.view-enter,.fade-in,
+    .modal-in,.modal-out,.backdrop-in,.backdrop-out,.nav-active-in{animation:none !important}
+    #navIndicator{transition:none !important}
+  }
+
+  /* ==================== 玻璃表面 ==================== */
+  /* 所有卡片 / 面板 / 输入框：透明冷灰 + 背景模糊 + 顶部内高光 */
+  .bg-white{
+    background-color:var(--g-panel) !important;
+    background-image:linear-gradient(168deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,.012) 42%,rgba(255,255,255,0) 100%) !important;
+    -webkit-backdrop-filter:blur(18px) saturate(155%) !important;
+    backdrop-filter:blur(18px) saturate(155%) !important;
+    border-color:var(--g-line) !important;
+    box-shadow:0 1px 0 rgba(255,255,255,.07) inset, 0 2px 8px rgba(0,0,0,.26), 0 14px 40px -18px rgba(0,0,0,.70) !important;
+  }
+  .bg-white\/80{
+    background-color:rgba(24,24,31,.58) !important;
+    -webkit-backdrop-filter:blur(20px) saturate(150%) !important;
+    backdrop-filter:blur(20px) saturate(150%) !important;
+    border-color:var(--g-line) !important;
+  }
+  /* 顶栏与侧栏底部一条极细高光分割线 */
+  .border-zinc-100,.border-zinc-200,.border-zinc-300{border-color:var(--g-line) !important}
+
+  /* Logo 方块 / 侧边栏激活胶囊：保持亮面，不吃玻璃 */
+  .bg-white.text-ink-950{
+    background:#ffffff !important;background-image:none !important;
+    -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+    color:#000000 !important;
+  }
+
+  /* 侧边栏：比内容区更暗一档，层次拉开 */
+  .bg-ink-950{
+    background-color:var(--g-rail) !important;
+    -webkit-backdrop-filter:blur(24px) saturate(140%) !important;
+    backdrop-filter:blur(24px) saturate(140%) !important;
+  }
+  /* 内嵌块（聊天气泡、进度槽等）稍亮一档 */
+  .bg-zinc-100{
+    background-color:rgba(255,255,255,.062) !important;
+    border-color:var(--g-line) !important;
+  }
+
+  /* ==================== 按钮：hover 出光晕，对比度拉高 ==================== */
+  button,a,summary,[role="button"],label[class*="cursor-pointer"]{
+    transition:box-shadow .26s cubic-bezier(.22,1,.36,1), background-color .2s ease,
+               border-color .2s ease, color .2s ease, filter .2s ease, transform .16s ease;
+  }
+
+  /* 1) 主 CTA：亮面白，hover 时冷白光晕外扩 + 更亮（不是变灰） */
+  .bg-ink-900.text-white{
+    background:linear-gradient(180deg,#ffffff 0%,#e9e9f1 100%) !important;
+    color:#08080b !important;
+    border-color:transparent !important;
+    box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 4px 14px -4px rgba(255,255,255,.22), 0 2px 6px rgba(0,0,0,.45) !important;
+  }
+  .bg-ink-900.text-white:hover{
+    background:linear-gradient(180deg,#ffffff 0%,#f6f6fb 100%) !important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.55),
+               0 10px 30px -8px rgba(255,255,255,.40),
+               0 0 26px -4px rgba(170,200,255,.42),
+               0 3px 10px rgba(0,0,0,.50) !important;
+    transform:translateY(-1px);
+  }
+  .bg-ink-900.text-white:active{transform:translateY(0) scale(.985)}
+
+  /* 2) 中性按钮 / 表格行 / 列表项：hover 转"亮"而非"灰"，加白色微光 */
+  .hover\:bg-zinc-50:hover,
+  .hover\:bg-zinc-50\/60:hover,
+  .hover\:bg-zinc-100:hover,
+  .hover\:bg-white\/5:hover{
+    background-color:rgba(255,255,255,.075) !important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.14),
+               0 8px 24px -8px rgba(255,255,255,.16),
+               0 2px 8px rgba(0,0,0,.32) !important;
+  }
+  button.hover\:bg-zinc-50:hover,a.hover\:bg-zinc-50:hover,
+  button.hover\:bg-zinc-100:hover,a.hover\:bg-zinc-100:hover{color:var(--txt-hi) !important}
+  .hover\:border-zinc-200:hover,
+  .hover\:border-zinc-300:hover,
+  .hover\:border-ink-900\/40:hover{border-color:var(--g-line-hi) !important}
+  .hover\:border-ink-900:hover{border-color:rgba(255,255,255,.45) !important}
+
+  /* 3) 语义色按钮：同色系光晕 + 提亮提饱和 */
+  [class*="bg-emerald-600"]{
+    background:linear-gradient(180deg,#3ddc9c,#12b981) !important;
+    box-shadow:0 1px 0 rgba(255,255,255,.28) inset, 0 4px 12px -4px rgba(16,185,129,.42) !important;
+  }
+  [class*="bg-emerald-600"]:hover{
+    filter:brightness(1.13) saturate(1.16);
+    box-shadow:0 0 0 1px rgba(52,211,153,.55),
+               0 10px 28px -8px rgba(52,211,153,.55),
+               0 0 20px -4px rgba(52,211,153,.32) !important;
+    transform:translateY(-1px);
+  }
+  /* 红色描边 / 危险操作 */
+  [class*="border-red-200"],[class*="border-red-300"],[class*="text-red-500"][class*="border"]{
+    border-color:rgba(248,113,113,.38) !important;
+  }
+  [class*="border-red-200"]:hover,[class*="border-red-300"]:hover{filter:brightness(1.12)}
+  [class*="hover:bg-red-50"]:hover{
+    background-color:rgba(248,113,113,.14) !important;
+    box-shadow:0 0 0 1px rgba(248,113,113,.42),
+               0 10px 26px -8px rgba(248,113,113,.40) !important;
+  }
+
+  /* 4) 兜底：任意按钮 hover 都给一圈冷白微光，杜绝"变灰"观感 */
+  button:hover,a[class*="inline-flex"]:hover{
+    box-shadow:0 0 0 1px rgba(255,255,255,.12),
+               0 8px 22px -10px rgba(255,255,255,.20),
+               0 2px 8px rgba(0,0,0,.30);
+  }
+
+  /* 角色选择卡：hover 出白光而非压黑 */
+  .hover\:bg-ink-950:hover{
+    background-color:rgba(255,255,255,.075) !important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.16),
+               0 12px 30px -10px rgba(255,255,255,.20),
+               0 2px 8px rgba(0,0,0,.34) !important;
+  }
+  /* 分割线在玻璃上要能看见 */
+  .h-px.bg-zinc-200,.h-px.bg-zinc-100,.w-px.bg-zinc-200{background-color:rgba(255,255,255,.13) !important}
+
+  /* 5) 聚焦环改为强调色，键盘可达性更高级 */
+  [class*="focus:ring-ink-900"]:focus{
+    box-shadow:0 0 0 3px rgba(138,180,255,.32), 0 0 18px -2px rgba(138,180,255,.35) !important;
+    border-color:rgba(138,180,255,.55) !important;
+  }
+  input:focus,textarea:focus,select:focus{
+    outline:none;
+    border-color:rgba(138,180,255,.55) !important;
+    box-shadow:0 0 0 3px rgba(138,180,255,.20), 0 0 20px -6px rgba(138,180,255,.45) !important;
+    background-color:rgba(255,255,255,.055) !important;
+  }
+
+  /* ==================== 语义色 & 文字层级 ==================== */
+  .text-amber-600,.text-amber-700{color:#fbbf24 !important}
+  .text-emerald-600,.text-emerald-700{color:#34d399 !important}
+  .text-blue-600{color:var(--accent) !important}
+  .hover\:text-blue-600:hover{color:#a8ccff !important}
+  .text-red-500{color:#f87171 !important}
+  .hover\:text-red-500:hover{color:#fb8a8a !important}
+  .text-zinc-200,.text-zinc-300{color:var(--txt-low) !important}
+  .hover\:text-zinc-700:hover,.hover\:text-zinc-900:hover,
+  .group:hover .group-hover\:text-zinc-500{color:var(--txt-hi) !important}
+  .group:hover .group-hover\:text-white{color:#ffffff !important}
+
+  /* ==================== 组件质感 ==================== */
+  /* 卡片悬停：抬升 + 冷高光描边 + 深投影 */
+  .hover\:shadow-lift:hover{
+    box-shadow:0 1px 0 rgba(255,255,255,.10) inset,
+               0 0 0 1px rgba(255,255,255,.13),
+               0 22px 60px -18px rgba(0,0,0,.85),
+               0 0 34px -14px rgba(138,180,255,.30) !important;
+    border-color:var(--g-line-hi) !important;
+  }
+  .hover\:shadow-soft:hover{
+    box-shadow:0 0 0 1px rgba(255,255,255,.12),
+               0 14px 34px -14px rgba(0,0,0,.70),
+               0 0 22px -10px rgba(138,180,255,.24) !important;
+    border-color:var(--g-line-hi) !important;
+  }
+  /* 进度条槽 */
+  .bg-zinc-100[class*="rounded-full"],.bg-zinc-200[class*="rounded-full"]{
+    background-color:rgba(255,255,255,.085) !important;border-color:transparent !important;
+  }
+  /* Modal：玻璃更强，保证文字可读 */
+  #modalRoot .bg-white{
+    background-color:rgba(30,30,39,.90) !important;
+    -webkit-backdrop-filter:blur(30px) saturate(160%) !important;
+    backdrop-filter:blur(30px) saturate(160%) !important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.10), 0 40px 90px -20px rgba(0,0,0,.90) !important;
+  }
+  /* 遮罩 */
+  [class*="bg-black"],[class*="bg-ink-950/"]{
+    background-color:rgba(4,4,7,.62) !important;
+    -webkit-backdrop-filter:blur(6px) !important;backdrop-filter:blur(6px) !important;
+  }
+
+  ::placeholder{color:#6a6a76 !important;opacity:1}
+  input,textarea,select{color-scheme:dark}
+  input,textarea,select{background-color:rgba(255,255,255,.045) !important;border-color:var(--g-line) !important}
+  ::selection{background:rgba(138,180,255,.32);color:#fff}
+</style>
+</head>
+<body class="bg-zinc-50 text-zinc-800 antialiased">
+<!-- 路由切换顶部进度光带 -->
+<div id="routeProgress" class="fixed top-0 left-0 right-0 h-[2px] z-[70] pointer-events-none overflow-hidden">
+  <div id="routeProgressBar" class="h-full w-full origin-left scale-x-0 opacity-0"
+       style="background:linear-gradient(90deg,rgba(138,180,255,0) 0%,#8ab4ff 22%,#ffffff 62%,#c9b6ff 100%);
+              box-shadow:0 0 14px rgba(138,180,255,.75), 0 0 4px rgba(255,255,255,.9)"></div>
+</div>
+
+<!-- ==================== 登录页 ==================== -->
+<div id="loginView" class="min-h-screen grid lg:grid-cols-2">
+
+  <!-- 品牌区 -->
+  <div class="relative hidden lg:flex flex-col justify-between bg-ink-950 p-12 overflow-hidden">
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-white/[0.06] rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 -right-24 w-[28rem] h-[28rem] bg-blue-500/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/3 right-10 w-48 h-48 bg-emerald-400/10 rounded-full blur-3xl"></div>
+
+    <div class="relative flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-white text-ink-950 flex items-center justify-center font-bold text-lg">未</div>
+      <div class="leading-tight">
+        <div class="text-white font-semibold">未央社</div>
+        <div class="text-[11px] text-zinc-500 tracking-wide">WEIYANG CLUB · TASK OS</div>
+      </div>
+    </div>
+
+    <div class="relative">
+      <h1 class="text-4xl font-semibold text-white leading-tight tracking-tight">让社团协作<br/>井然有序。</h1>
+      <p class="mt-4 text-sm text-zinc-400 leading-relaxed max-w-sm">从任务下发、子任务报名，到分工与产出审核，一条链路贯通主席团、部长与成员。</p>
+      <div class="mt-10 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0" id="lf1"></div>
+          <div><p class="text-sm text-white font-medium">分级权限</p><p class="text-xs text-zinc-500 mt-0.5">学号密码登录，按数据库权限进入对应端</p></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0" id="lf2"></div>
+          <div><p class="text-sm text-white font-medium">进度可视</p><p class="text-xs text-zinc-500 mt-0.5">三阶段进度实时标记，谁卡住一目了然</p></div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0" id="lf3"></div>
+          <div><p class="text-sm text-white font-medium">产出闭环</p><p class="text-xs text-zinc-500 mt-0.5">上传—审核—确认/驳回，全程留痕</p></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="relative text-[11px] text-zinc-600">© 2026 未央社 · 内部管理系统</p>
+  </div>
+
+  <!-- 表单区 -->
+  <div class="flex items-center justify-center p-6 sm:p-12 bg-white">
+    <div class="w-full max-w-sm">
+      <div class="lg:hidden flex items-center gap-3 mb-8">
+        <div class="w-10 h-10 rounded-xl bg-ink-950 text-white flex items-center justify-center font-bold text-lg">未</div>
+        <div class="font-semibold text-zinc-900">未央社任务管理</div>
+      </div>
+
+      <h2 class="text-2xl font-semibold text-zinc-900 tracking-tight">登录</h2>
+      <p class="text-sm text-zinc-500 mt-1.5 mb-8">使用学号与密码进入系统</p>
+
+      <form onsubmit="event.preventDefault(); login('president');" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">学号</label>
+          <input type="text" value="202101001" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 transition-shadow" />
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-sm font-medium text-zinc-700">密码</label>
+            <a href="#" class="text-[12px] text-zinc-400 hover:text-ink-900 transition-colors">忘记密码？</a>
+          </div>
+          <input type="password" value="123456" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 transition-shadow" />
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-ink-900 hover:bg-ink-800 active:scale-[0.99] text-white text-sm font-medium shadow-soft transition-all">登录</button>
+      </form>
+
+      <div class="flex items-center gap-3 my-6">
+        <div class="flex-1 h-px bg-zinc-200"></div>
+        <span class="text-[11px] text-zinc-400">演示账号 · 一键进入</span>
+        <div class="flex-1 h-px bg-zinc-200"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2.5">
+        <button onclick="login('president')" class="group p-3 rounded-xl border border-zinc-200 hover:border-ink-900 hover:bg-ink-950 active:scale-[0.98] transition-all text-center">
+          <div class="text-ink-900 group-hover:text-white transition-colors flex justify-center mb-1.5" id="li1"></div>
+          <div class="text-[12px] font-medium text-zinc-800 group-hover:text-white transition-colors">主席团</div>
+          <div class="text-[10px] text-zinc-400 group-hover:text-zinc-500">社长</div>
+        </button>
+        <button onclick="login('minister')" class="group p-3 rounded-xl border border-zinc-200 hover:border-ink-900 hover:bg-ink-950 active:scale-[0.98] transition-all text-center">
+          <div class="text-ink-900 group-hover:text-white transition-colors flex justify-center mb-1.5" id="li2"></div>
+          <div class="text-[12px] font-medium text-zinc-800 group-hover:text-white transition-colors">部长</div>
+          <div class="text-[10px] text-zinc-400 group-hover:text-zinc-500">部门管理</div>
+        </button>
+        <button onclick="login('member')" class="group p-3 rounded-xl border border-zinc-200 hover:border-ink-900 hover:bg-ink-950 active:scale-[0.98] transition-all text-center">
+          <div class="text-ink-900 group-hover:text-white transition-colors flex justify-center mb-1.5" id="li3"></div>
+          <div class="text-[12px] font-medium text-zinc-800 group-hover:text-white transition-colors">成员</div>
+          <div class="text-[10px] text-zinc-400 group-hover:text-zinc-500">报名参与</div>
+        </button>
+      </div>
+
+      <p class="text-[11px] text-zinc-400 text-center mt-8 leading-relaxed">登录即代表同意《社团管理系统使用规范》</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 应用主体 ==================== -->
+<div id="appView" class="is-hidden">
+  <!-- 侧边栏 -->
+  <aside class="w-64 shrink-0 bg-ink-950 text-zinc-400 flex flex-col fixed inset-y-0 left-0 z-30">
+    <div class="h-16 flex items-center gap-3 px-6 border-b border-white/5">
+      <div class="w-9 h-9 rounded-xl bg-white text-ink-950 flex items-center justify-center font-bold text-lg">未</div>
+      <div class="leading-tight">
+        <div class="text-white font-semibold text-sm">未央社</div>
+        <div class="text-[11px] text-zinc-500">Task OS</div>
+      </div>
+    </div>
+    <div class="relative flex-1 min-h-0 flex">
+      <span id="navIndicator" class="pointer-events-none absolute rounded-[11px] opacity-0"
+            style="background:linear-gradient(90deg,rgba(138,180,255,.22),rgba(255,255,255,.10));
+                   box-shadow:0 0 0 1px rgba(255,255,255,.14), 0 0 22px rgba(138,180,255,.30), 0 6px 20px rgba(0,0,0,.45);
+                   transition:transform .48s cubic-bezier(.22,1,.36,1), opacity .3s ease, width .48s cubic-bezier(.22,1,.36,1), height .48s cubic-bezier(.22,1,.36,1)"></span>
+      <nav id="nav" class="flex-1 px-3 py-5 space-y-1 overflow-y-auto"></nav>
+    </div>
+    <div id="sideFoot" class="p-3 border-t border-white/5"></div>
+  </aside>
+
+  <!-- 右侧 -->
+  <div class="ml-64 min-h-screen flex flex-col min-w-0">
+    <header class="h-16 bg-white/80 backdrop-blur border-b border-zinc-200 flex items-center justify-between px-8 sticky top-0 z-20">
+      <nav id="breadcrumb" class="flex items-center gap-2 text-sm text-zinc-500"></nav>
+      <div class="flex items-center gap-4">
+        <button class="relative w-9 h-9 rounded-lg hover:bg-zinc-100 flex items-center justify-center text-zinc-500 transition-colors" title="通知">
+          <span id="bellIcon"></span>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+        </button>
+        <div class="w-px h-6 bg-zinc-200"></div>
+        <div id="headerUser" class="flex items-center gap-2.5"></div>
+      </div>
+    </header>
+    <main id="main" class="flex-1 p-8"></main>
+  </div>
+</div>
+
+<!-- Modal 容器 -->
+<div id="modalRoot"></div>
+<!-- Toast 容器 -->
+<div id="toastRoot" class="fixed bottom-6 right-6 z-[60] space-y-2"></div>
+
+<script>
+/* =========================================================
+   图标库
+   ========================================================= */
+const ICONS = {
+  grid:'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
+  users:'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-3-3 3 3 0 003 3z',
+  clipboard:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+  check:'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  megaphone:'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
+  box:'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+  chat:'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
+  bell:'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
+  search:'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+  plus:'M12 4v16m8-8H4',
+  chevDown:'M19 9l-7 7-7-7',
+  chevRight:'M9 5l7 7-7 7',
+  arrowLeft:'M10 19l-7-7m0 0l7-7m-7 7h18',
+  upload:'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12',
+  file:'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  edit:'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+  trash:'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+  eye:'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+  x:'M6 18L18 6M6 6l12 12',
+  send:'M12 19l9 2-9-18-9 18 9-2zm0 0v-8',
+  layers:'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+  flag:'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
+  split:'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4',
+  list:'M4 6h16M4 10h16M4 14h10M4 18h10',
+  user:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+  calendar:'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+  logout:'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
+  settings:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+  download:'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4',
+  chart:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+  sparkle:'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'
+};
+const icon = (n, c='w-5 h-5') => `<svg class="${c}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ICONS[n]||''}"/></svg>`;
+
+/* =========================================================
+   数据层
+   ========================================================= */
+const DB = {
+  club:'未央社',
+  members:[
+    {id:'m1',name:'李思远',sid:'202101001',dept:'主席团',post:'社长',projects:['迎新晚会','社团招新','年度总结'],avatar:12,out:2},
+    {id:'m2',name:'陈昊',sid:'202101018',dept:'外联部',post:'部长',projects:['社团招新','校庆汇演'],avatar:32,out:1},
+    {id:'m3',name:'王悦',sid:'202310124',dept:'外联部',post:'干事',projects:['社团招新','校庆汇演'],avatar:5,out:3},
+    {id:'m4',name:'林楠',sid:'202310208',dept:'宣传部',post:'部长',projects:['社团招新','迎新晚会'],avatar:8,out:4},
+    {id:'m5',name:'赵晴',sid:'202209117',dept:'文艺部',post:'部长',projects:['校庆汇演','迎新晚会'],avatar:15,out:2},
+    {id:'m6',name:'周野',sid:'202310356',dept:'组织部',post:'干事',projects:['社团招新'],avatar:20,out:1},
+    {id:'m7',name:'孙瑶',sid:'202411002',dept:'外联部',post:'干事',projects:['社团招新'],avatar:23,out:0},
+    {id:'m8',name:'黄睿',sid:'202310541',dept:'财务部',post:'部长',projects:['年度总结','社团招新'],avatar:27,out:2},
+    {id:'m9',name:'吴桐',sid:'202411089',dept:'文艺部',post:'干事',projects:['校庆汇演'],avatar:33,out:1},
+    {id:'m10',name:'郑昊',sid:'202209433',dept:'组织部',post:'干事',projects:['迎新晚会'],avatar:41,out:1},
+    {id:'m11',name:'苏芮',sid:'202310677',dept:'宣传部',post:'干事',projects:['社团招新','迎新晚会'],avatar:45,out:2},
+    {id:'m12',name:'何川',sid:'202411155',dept:'财务部',post:'干事',projects:['年度总结'],avatar:51,out:0}
+  ],
+  tasks:[
+    {id:'t1',name:'社团招新计划',desc:'制定秋季招新整体方案，覆盖线上宣传、线下摆摊与面试全流程。',status:'进行中',depts:['外联部','宣传部','组织部'],resources:['招新方案.pdf','往届招新海报.psd','报名表模板.xlsx'],stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],cur:2,owner:'陈昊',deadline:'2026-11-05'},
+    {id:'t2',name:'迎新晚会统筹',desc:'负责新生晚会整体流程设计、场地协调与节目审核，确保活动顺利落地。',status:'进行中',depts:['文艺部','宣传部','组织部'],resources:['晚会流程表.docx','舞台效果图.png'],stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],cur:2,owner:'赵晴',deadline:'2026-11-20'},
+    {id:'t3',name:'校庆文艺汇演',desc:'筹备建校周年文艺演出，协调各院系节目排练与舞台技术保障。',status:'待审核',depts:['文艺部','外联部'],resources:['汇演策划案.pdf'],stages:[{name:'策划',state:'active'},{name:'执行',state:'todo'},{name:'验收',state:'todo'}],cur:1,owner:'赵晴',deadline:'2026-12-10'},
+    {id:'t4',name:'公益志愿服务',desc:'联合社区开展敬老慰问与环保清扫，活动已圆满完成并归档材料。',status:'已结束',depts:['外联部','组织部'],resources:['活动总结.pdf','现场照片.zip'],stages:[{name:'策划',state:'done'},{name:'执行',state:'done'},{name:'验收',state:'done'}],cur:3,owner:'周野',deadline:'2026-09-28'},
+    {id:'t5',name:'年度总结报告',desc:'汇总全年活动数据、经费使用与成员成长，形成可对外发布的年度报告。',status:'待审核',depts:['财务部','主席团'],resources:['经费明细.xlsx','活动清单.xlsx'],stages:[{name:'策划',state:'todo'},{name:'执行',state:'todo'},{name:'验收',state:'todo'}],cur:0,owner:'黄睿',deadline:'2026-12-25'}
+  ],
+  subtasks:[
+    {id:'s1',taskId:'t1',name:'外联宣讲',desc:'对接各院系与赞助商，完成招新宣讲排期。',dept:'外联部',quota:8,status:'进行中',stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],resources:['宣讲PPT.pptx'],notices:['10月22日 18:30 于 A302 集合开会'],signups:[
+      {mid:'m3',div:'宣讲主持',status:'待审核'},
+      {mid:'m7',div:'物料对接',status:'待审核'},
+      {mid:'m6',div:'场地协调',status:'已同意'},
+      {mid:'m10',div:'——',status:'已拒绝'}
+    ]},
+    {id:'s2',taskId:'t1',name:'宣传物料设计',desc:'设计招新海报、易拉宝与线上推文视觉。',dept:'宣传部',quota:4,status:'进行中',stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],resources:['VI手册.pdf'],notices:['交付节点 10月25日前出初稿'],signups:[
+      {mid:'m11',div:'主视觉',status:'已同意'},
+      {mid:'m4',div:'物料排版',status:'已同意'}
+    ]},
+    {id:'s3',taskId:'t1',name:'报名表收集',desc:'整理线上报名数据并做初步筛选。',dept:'组织部',quota:3,status:'进行中',stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],resources:['报名表模板.xlsx'],notices:['每日 20:00 汇总当日报名数据'],signups:[
+      {mid:'m10',div:'数据整理',status:'待审核'}
+    ]},
+    {id:'s4',taskId:'t2',name:'节目征集',desc:'面向全校征集晚会节目并组织初审。',dept:'文艺部',quota:10,status:'进行中',stages:[{name:'策划',state:'done'},{name:'执行',state:'active'},{name:'验收',state:'todo'}],resources:['节目征集通知.docx'],notices:['初审时间 11月8日 14:00'],signups:[
+      {mid:'m9',div:'节目统筹',status:'已同意'},
+      {mid:'m5',div:'初审评委',status:'已同意'}
+    ]},
+    {id:'s5',taskId:'t2',name:'场地布置',desc:'晚会现场舞美、灯光与桌椅布置。',dept:'组织部',quota:6,status:'待审核',stages:[{name:'策划',state:'active'},{name:'执行',state:'todo'},{name:'验收',state:'todo'}],resources:['场地平面图.pdf'],notices:['需提前一天进场布置'],signups:[
+      {mid:'m6',div:'舞美执行',status:'待审核'},
+      {mid:'m10',div:'物料搬运',status:'待审核'}
+    ]},
+    {id:'s6',taskId:'t3',name:'舞台技术保障',desc:'负责音响、灯光与直播信号的技术支持。',dept:'文艺部',quota:5,status:'待审核',stages:[{name:'策划',state:'active'},{name:'执行',state:'todo'},{name:'验收',state:'todo'}],resources:['设备清单.xlsx'],notices:['需持证操作音响设备'],signups:[]},
+    {id:'s7',taskId:'t4',name:'社区敬老慰问',desc:'组织志愿者前往社区开展慰问演出。',dept:'外联部',quota:8,status:'已结束',stages:[{name:'策划',state:'done'},{name:'执行',state:'done'},{name:'验收',state:'done'}],resources:['活动方案.pdf'],notices:['活动已结束，感谢参与'],signups:[
+      {mid:'m3',div:'演出组',status:'已同意'},
+      {mid:'m7',div:'后勤组',status:'已同意'}
+    ]},
+    {id:'s8',taskId:'t5',name:'数据汇总',desc:'汇总全年活动数据与经费使用明细。',dept:'财务部',quota:3,status:'待审核',stages:[{name:'策划',state:'todo'},{name:'执行',state:'todo'},{name:'验收',state:'todo'}],resources:['经费明细.xlsx'],notices:['请各部门 12月10日前提交数据'],signups:[
+      {mid:'m8',div:'数据核对',status:'待审核'}
+    ]}
+  ],
+  outputs:[
+    {id:'o1',name:'招新宣传海报初稿',task:'社团招新计划',sub:'宣传物料设计',member:'林楠',date:'2026-10-20',status:'待审核',file:'poster_v1.psd',note:''},
+    {id:'o2',name:'外联宣讲 PPT',task:'社团招新计划',sub:'外联宣讲',member:'王悦',date:'2026-10-19',status:'待审核',file:'宣讲PPT.pptx',note:''},
+    {id:'o3',name:'迎新晚会流程表',task:'迎新晚会统筹',sub:'节目征集',member:'赵晴',date:'2026-10-18',status:'已通过',file:'流程表.docx',note:'结构完整，通过'},
+    {id:'o4',name:'场地布置预算',task:'迎新晚会统筹',sub:'场地布置',member:'周野',date:'2026-10-17',status:'已驳回',file:'预算.xlsx',note:'金额超出部门额度，请重新核算'},
+    {id:'o5',name:'年度经费结算表',task:'年度总结报告',sub:'数据汇总',member:'黄睿',date:'2026-10-16',status:'已通过',file:'结算表.xlsx',note:''}
+  ],
+  announcements:[
+    {id:'a1',title:'2026 秋季社团招新正式启动',content:'本周起开始线上报名，各院系宣讲排期详见附件。请各部门部长及时同步成员。',date:'2026-10-10',author:'李思远',type:'公告',pinned:true},
+    {id:'a2',title:'迎新晚会志愿者招募中',content:'晚会筹备需要 20 名志愿者，负责场务、引导与后台支持，欢迎踊跃报名。',date:'2026-10-15',author:'赵晴',type:'招募',pinned:false},
+    {id:'a3',title:'关于社团经费报销规范的通知',content:'自本月起所有报销需附电子发票与活动说明，经财务部审核后方可提交。',date:'2026-10-08',author:'黄睿',type:'通知',pinned:false},
+    {id:'a4',title:'校庆文艺汇演节目征集',content:'面向全校征集语言类、歌舞类节目，报名截止 11 月 8 日。',date:'2026-10-18',author:'赵晴',type:'招募',pinned:false}
+  ],
+  assets:[
+    {id:'as1',name:'专业音响设备',qty:'2 套',status:'在用',keeper:'陈昊',dept:'外联部'},
+    {id:'as2',name:'折叠展架',qty:'10 个',status:'闲置',keeper:'林楠',dept:'宣传部'},
+    {id:'as3',name:'单反相机',qty:'1 台',status:'在用',keeper:'苏芮',dept:'宣传部'},
+    {id:'as4',name:'活动帐篷',qty:'4 顶',status:'在用',keeper:'周野',dept:'组织部'},
+    {id:'as5',name:'宣传物料库存',qty:'若干',status:'闲置',keeper:'林楠',dept:'宣传部'}
+  ],
+  threads:[
+    {id:'th1',role:'president',name:'陈昊',sub:'外联部部长',avatar:32,msgs:[
+      {from:'them',text:'社长，招新宣讲的场地已经确认在 A302 了。',time:'10:12'},
+      {from:'me',text:'好的，宣讲 PPT 需要在 10 月 25 日前定稿。',time:'10:15'},
+      {from:'them',text:'收到，我今天把初稿上传到产出管理。',time:'10:16'}
+    ]},
+    {id:'th2',role:'president',name:'林楠',sub:'宣传部部长',avatar:8,msgs:[
+      {from:'them',text:'海报初稿已经上传，麻烦您看下视觉方向。',time:'09:40'},
+      {from:'me',text:'整体不错，主标题可以再大一号。',time:'09:52'}
+    ]},
+    {id:'th3',role:'president',name:'王悦',sub:'外联部成员',avatar:5,msgs:[
+      {from:'them',text:'社长您好，我想申请参与外联宣讲可以吗？',time:'昨天'}
+    ]},
+    {id:'th4',role:'minister',name:'李思远',sub:'社长 · 主席团',avatar:12,msgs:[
+      {from:'them',text:'招新进展如何？本周需要看到宣讲排期。',time:'09:10'},
+      {from:'me',text:'已完成 3 个院系对接，排期表今天发您。',time:'09:20'}
+    ]},
+    {id:'th5',role:'minister',name:'王悦',sub:'外联部成员',avatar:5,msgs:[
+      {from:'them',text:'部长，我想报名外联宣讲的主持岗。',time:'11:02'},
+      {from:'me',text:'可以，先在任务大厅提交报名，我来审核。',time:'11:05'}
+    ]},
+    {id:'th6',role:'minister',name:'孙瑶',sub:'外联部成员',avatar:23,msgs:[
+      {from:'them',text:'物料对接这块我之前做过，可以分配给我。',time:'10:48'}
+    ]},
+    {id:'th7',role:'member',name:'陈昊',sub:'外联部部长',avatar:32,msgs:[
+      {from:'them',text:'外联宣讲还缺两个名额，你可以看看。',time:'10:30'},
+      {from:'me',text:'好的部长，我这就去任务大厅报名。',time:'10:32'}
+    ]},
+    {id:'th8',role:'member',name:'李思远',sub:'社长 · 主席团',avatar:12,msgs:[
+      {from:'them',text:'欢迎加入未央社，有任何问题随时找我。',time:'昨天'}
+    ]}
+  ]
+};
+
+/* =========================================================
+   状态 & 角色配置
+   ========================================================= */
+const state = { role:null, page:null, params:{}, filter:'全部' };
+
+const ROLES = {
+  president:{ label:'主席团 & 社长', short:'主席团', user:'李思远', post:'社长', dept:'主席团', avatar:12, mail:'president@club.edu' },
+  minister:{ label:'部长', short:'部长', user:'陈昊', post:'外联部部长', dept:'外联部', avatar:32, mail:'minister@club.edu' },
+  member:{ label:'成员', short:'成员', user:'王悦', post:'外联部干事', dept:'外联部', avatar:5, mail:'member@club.edu' }
+};
+
+const NAV = {
+  president:[
+    {group:'主席团',items:[
+      {key:'dashboard',label:'工作台',icon:'grid'},
+      {key:'members',label:'社团人员信息',icon:'users'},
+      {key:'tasks',label:'任务管理',icon:'clipboard'},
+      {key:'outputs',label:'产出审核',icon:'check'},
+      {key:'announcements',label:'活动与公告',icon:'megaphone'},
+      {key:'assets',label:'资产管理',icon:'box'}
+    ]},
+    {group:'协作',items:[
+      {key:'messages',label:'沟通中心',icon:'chat'}
+    ]}
+  ],
+  minister:[
+    {group:'部门管理',items:[
+      {key:'dashboard',label:'工作台',icon:'grid'},
+      {key:'dept-members',label:'部门人员信息',icon:'users'},
+      {key:'subtasks',label:'子任务管理',icon:'layers'},
+      {key:'signups',label:'报名管理',icon:'flag'},
+      {key:'assignment',label:'分工设置',icon:'split'},
+      {key:'roster',label:'成员名单',icon:'list'},
+      {key:'announcements-min',label:'子任务公告',icon:'megaphone'}
+    ]},
+    {group:'协作',items:[
+      {key:'messages',label:'沟通中心',icon:'chat'}
+    ]}
+  ],
+  member:[
+    {group:'我的任务',items:[
+      {key:'hall',label:'任务大厅',icon:'grid'},
+      {key:'my-tasks',label:'我的任务',icon:'clipboard'},
+      {key:'my-outputs',label:'我的产出',icon:'file'}
+    ]},
+    {group:'协作',items:[
+      {key:'messages',label:'沟通中心',icon:'chat'}
+    ]}
+  ]
+};
+
+const PAGE_TITLE = {
+  dashboard:'工作台', members:'社团人员信息', tasks:'任务管理', 'task-detail':'任务详情',
+  outputs:'产出审核', announcements:'活动与公告', assets:'资产管理',
+  'dept-members':'部门人员信息', subtasks:'子任务管理', 'subtask-detail':'子任务详情',
+  signups:'报名管理', assignment:'分工设置', roster:'成员名单', 'announcements-min':'子任务公告',
+  hall:'任务大厅', 'hall-detail':'子任务详情', 'my-tasks':'我的任务', 'my-outputs':'我的产出',
+  messages:'沟通中心'
+};
+
+/* =========================================================
+   通用组件
+   ========================================================= */
+const TONES = {
+  amber:'bg-amber-50 text-amber-600',
+  green:'bg-emerald-50 text-emerald-600',
+  rose:'bg-rose-50 text-rose-600',
+  blue:'bg-blue-50 text-blue-600',
+  zinc:'bg-zinc-100 text-zinc-500',
+  ink:'bg-ink-900 text-white'
+};
+function badge(text, tone){
+  return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${TONES[tone]||TONES.zinc}">${text}</span>`;
+}
+function statusTone(s){
+  if(['已确认','已同意','已通过','已完成'].includes(s)) return 'green';
+  if(['待审核','待确认'].includes(s)) return 'amber';
+  if(['已拒绝','已驳回'].includes(s)) return 'rose';
+  if(['进行中','执行中'].includes(s)) return 'blue';
+  return 'zinc';
+}
+function statusBadge(s){ return badge(s, statusTone(s)); }
+
+function stepBar(stages){
+  let out = '<div class="flex items-center">';
+  stages.forEach((s,i)=>{
+    const node = s.state==='done' ? 'bg-ink-900 text-white'
+               : s.state==='active' ? 'bg-blue-500 text-white'
+               : 'bg-zinc-200 text-zinc-400';
+    const lbl = s.state==='active' ? 'text-blue-500 font-medium'
+              : s.state==='done' ? 'text-zinc-500' : 'text-zinc-400';
+    const inner = s.state==='done' ? '✓' : (i+1);
+    out += `<div class="flex flex-col items-center w-12">
+      <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs ${node}">${inner}</div>
+      <span class="text-[10px] mt-1 ${lbl} whitespace-nowrap">${s.name}</span>
+    </div>`;
+    if(i < stages.length-1){
+      const line = s.state==='done' ? 'bg-ink-900' : 'bg-zinc-200';
+      out += `<div class="flex-1 h-1 rounded-full mx-0.5 ${line}"></div>`;
+    }
+  });
+  out += '</div>';
+  return out;
+}
+function lineBar(pct, color='bg-ink-900'){
+  return `<div class="w-full h-1.5 rounded-full bg-zinc-100 overflow-hidden"><div class="h-full rounded-full ${color}" style="width:${Math.max(0,Math.min(100,pct))}%"></div></div>`;
+}
+function pageHead(title, sub, actions){
+  return `<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+    <div>
+      <h1 class="text-2xl font-semibold text-zinc-900 tracking-tight">${title}</h1>
+      <p class="text-sm text-zinc-500 mt-1">${sub}</p>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">${actions||''}</div>
+  </div>`;
+}
+function searchBox(ph, w='w-64'){
+  return `<div class="relative">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">${icon('search','w-4 h-4')}</span>
+    <input type="text" placeholder="${ph}" class="${w} pl-9 pr-3 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 transition-shadow" />
+  </div>`;
+}
+function primaryBtn(label, onclick, iconName='plus'){
+  return `<button onclick="${onclick}" class="inline-flex items-center gap-2 bg-ink-900 hover:bg-ink-800 active:scale-[0.98] text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-soft transition-all">
+    ${iconName?icon(iconName,'w-4 h-4'):''}${label}</button>`;
+}
+function ghostBtn(label, onclick){
+  return `<button onclick="${onclick}" class="inline-flex items-center gap-2 bg-white hover:bg-zinc-50 active:scale-[0.98] text-zinc-700 text-sm font-medium px-4 py-2.5 rounded-xl border border-zinc-200 shadow-soft transition-all">${label}</button>`;
+}
+function statCard(label, value, hint, iconName, tone){
+  const toneCls = { blue:'bg-blue-50 text-blue-600', amber:'bg-amber-50 text-amber-600', green:'bg-emerald-50 text-emerald-600', ink:'bg-ink-900 text-white', zinc:'bg-zinc-100 text-zinc-600' }[tone] || 'bg-zinc-100 text-zinc-600';
+  return `<div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5 hover:shadow-lift hover:-translate-y-0.5 transition-all">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="text-[12px] text-zinc-500">${label}</p>
+        <p class="text-3xl font-semibold text-zinc-900 mt-2 tracking-tight">${value}</p>
+        <p class="text-[11px] text-zinc-400 mt-1">${hint||''}</p>
+      </div>
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center ${toneCls}">${icon(iconName,'w-5 h-5')}</div>
+    </div>
+  </div>`;
+}
+function emptyState(text, sub){
+  return `<div class="py-16 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto text-zinc-300 mb-3">${icon('file','w-7 h-7')}</div>
+    <p class="text-sm font-medium text-zinc-600">${text}</p>
+    <p class="text-xs text-zinc-400 mt-1">${sub||''}</p>
+  </div>`;
+}
+function avatarImg(id, size='w-8 h-8'){
+  return `<img src="https://i.pravatar.cc/64?img=${id}" class="${size} rounded-full object-cover" alt="" />`;
+}
+function toast(msg){
+  const root = document.getElementById('toastRoot');
+  const el = document.createElement('div');
+  el.className = 'fade-in bg-ink-950 text-white text-[13px] px-4 py-2.5 rounded-xl shadow-lift flex items-center gap-2';
+  el.innerHTML = `${icon('check','w-4 h-4 text-emerald-400')}<span>${msg}</span>`;
+  root.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),320); }, 1900);
+}
+
+/* =========================================================
+   Modal
+   ========================================================= */
+let modalToken = 0;
+function openModal(opts){
+  const root = document.getElementById('modalRoot');
+  modalToken++;                       // 作废上一轮的关闭清理计时器
+  root.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-in">
+    <div class="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="relative w-full ${opts.w||'max-w-lg'} bg-white rounded-2xl shadow-lift overflow-hidden modal-in">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+        <h2 class="text-lg font-semibold text-zinc-900">${opts.title}</h2>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">${icon('x','w-5 h-5')}</button>
+      </div>
+      <div class="px-6 py-5 max-h-[70vh] overflow-y-auto">${opts.body||''}</div>
+      ${opts.footer?`<div class="px-6 py-4 border-t border-zinc-100 flex justify-end gap-3">${opts.footer}</div>`:''}
+    </div>
+  </div>`;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(){
+  const root = document.getElementById('modalRoot');
+  if(!root.firstElementChild){ document.body.style.overflow = ''; return; }
+  const my = ++modalToken;
+  const panel = root.querySelector('.modal-in');
+  const bd    = root.querySelector('.backdrop-in');
+  if(!panel || REDUCED){ root.innerHTML = ''; document.body.style.overflow = ''; return; }
+  panel.classList.remove('modal-in'); panel.classList.add('modal-out');
+  if(bd){ bd.classList.remove('backdrop-in'); bd.classList.add('backdrop-out'); }
+  setTimeout(()=>{
+    if(my !== modalToken) return;     // 期间又开了新弹窗，别把新的清掉
+    root.innerHTML = '';
+    document.body.style.overflow = '';
+  }, 190);
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+/* =========================================================
+   登录 / 导航
+   ========================================================= */
+/* ---------- 动效偏好 ---------- */
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- 顶部进度光带 ---------- */
+function progressStart(){
+  const bar = document.getElementById('routeProgressBar');
+  if(!bar || REDUCED) return;
+  bar.style.transition = 'none';
+  bar.style.transform  = 'scaleX(0)';
+  bar.style.opacity    = '1';
+  void bar.offsetWidth;            // 强制回流，保证动画从头播放
+  bar.style.transition = 'transform .52s cubic-bezier(.16,1,.3,1)';
+  bar.style.transform  = 'scaleX(.78)';
+}
+function progressEnd(){
+  const bar = document.getElementById('routeProgressBar');
+  if(!bar || REDUCED) return;
+  bar.style.transition = 'transform .24s cubic-bezier(.4,0,.2,1), opacity .4s ease .1s';
+  bar.style.transform  = 'scaleX(1)';
+  bar.style.opacity    = '0';
+}
+
+/* ---------- 登录 / 登出 ---------- */
+function enterView(el){
+  if(!el || REDUCED) return;
+  el.classList.remove('view-enter');
+  void el.offsetWidth;
+  el.classList.add('view-enter');
+}
+function login(role){
+  state.role = role;
+  state.page = role==='member' ? 'hall' : 'dashboard';
+  state.params = {};
+  state.filter = '全部';
+  progressStart();
+  const lv  = document.getElementById('loginView');
+  const app = document.getElementById('appView');
+  const finish = function(){
+    lv.classList.add('is-hidden');
+    app.classList.remove('is-hidden');
+    state.__anim = true;
+    render();
+    enterView(app);
+    setTimeout(progressEnd, 340);
+  };
+  if(REDUCED){ finish(); return; }
+  lv.classList.add('page-exit');                 // 登录页先淡出，再让后台浮现
+  setTimeout(function(){ lv.classList.remove('page-exit'); finish(); }, 175);
+}
+function logout(){
+  state.role = null; state.page = null; state.params = {};
+  document.getElementById('appView').classList.add('is-hidden');
+  const lv = document.getElementById('loginView');
+  lv.classList.remove('is-hidden');
+  enterView(lv);
+  closeModal();
+}
+
+/* ---------- 带转场的路由 ---------- */
+let navToken = 0;
+function go(page, params){
+  const main = document.getElementById('main');
+  const samePage = state.page === page &&
+                   JSON.stringify(state.params || {}) === JSON.stringify(params || {});
+  state.page = page;
+  state.params = params || {};
+
+  // 同页重复点击：只做一次轻脉冲，避免整屏闪一下
+  if(samePage){
+    render();
+    if(!REDUCED){
+      main.classList.remove('page-pulse'); void main.offsetWidth;
+      main.classList.add('page-pulse');
+    }
+    return;
+  }
+
+  if(REDUCED){
+    render();
+    try { window.scrollTo(0,0); } catch(e) {}
+    return;
+  }
+
+  const token = ++navToken;
+  progressStart();
+  try { window.scrollTo(0,0); } catch(e) {}   // 转场中瞬移到顶，避免与淡入打架
+  main.classList.remove('page-enter','page-pulse');
+  main.classList.add('page-exit');
+
+  setTimeout(()=>{
+    if(token !== navToken) return;            // 期间又点了别的菜单，交给后一次
+    state.__anim = true;
+    render();
+    main.classList.remove('page-exit');
+    // 有分块错峰时，容器只做淡入，位移交给子块，避免两层位移叠加显得拖沓
+    main.classList.add(state.__staggered ? 'page-enter-soft' : 'page-enter');
+    setTimeout(()=>{
+      if(token !== navToken) return;
+      main.classList.remove('page-enter','page-enter-soft');
+      progressEnd();
+    }, 560);
+  }, 170);
+}
+
+/* ---------- 内容块错峰浮现 ---------- */
+function applyStagger(){
+  state.__staggered = 0;
+  const main = document.getElementById('main');
+  const host = main && main.firstElementChild;
+  if(!host) return;
+  const kids = Array.prototype.slice.call(host.children);
+  if(kids.length < 2) return;          // 单块内容直接整体淡入即可
+  // 只让前 9 块错峰，其余跟随最后一块，避免长列表拖沓
+  const span = Math.min(kids.length, 9);
+  kids.forEach(function(el, i){
+    el.classList.add('stg');
+    el.style.animationDelay = (Math.min(i, span - 1) * 44) + 'ms';
+    // 动画结束立刻摘掉：animation 的 both 会锁住 transform，否则卡片 hover 抬升会失效
+    el.addEventListener('animationend', function done(){
+      el.classList.remove('stg');
+      el.style.animationDelay = '';
+      el.removeEventListener('animationend', done);
+    });
+  });
+  state.__staggered = kids.length;
+  // 兜底清理（浏览器未派发 animationend 时）
+  clearTimeout(window.__stgTimer);
+  window.__stgTimer = setTimeout(clearStagger, 44 * span + 620);
+}
+function clearStagger(){
+  const main = document.getElementById('main');
+  if(!main) return;
+  const list = main.querySelectorAll('.stg');
+  for(let i=0;i<list.length;i++){
+    list[i].classList.remove('stg');
+    list[i].style.animationDelay = '';
+  }
+}
+
+function render(){
+  renderSidebar();
+  renderHeader();
+  renderMain();
+}
+
+/* =========================================================
+   侧边栏
+   ========================================================= */
+function renderSidebar(){
+  const r = ROLES[state.role];
+  const groups = NAV[state.role];
+  const nav = document.getElementById('nav');
+  nav.innerHTML = groups.map(g=>`
+    <p class="px-3 text-[11px] uppercase tracking-wider text-zinc-600 mb-2 ${g===groups[0]?'':'mt-6'}">${g.group}</p>
+    ${g.items.map(it=>{
+      const active = isActive(it.key);
+      return `<a href="javascript:void(0)" onclick="go('${it.key}')"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        ${active?'bg-white text-ink-950 font-medium shadow-soft nav-active-in':'hover:bg-white/5 hover:text-white'}">
+        ${icon(it.icon,'w-5 h-5')}<span>${it.label}</span>
+      </a>`;
+    }).join('')}
+  `).join('');
+
+  moveNavIndicator();
+  document.getElementById('sideFoot').innerHTML = `
+    <div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+      ${avatarImg(r.avatar,'w-9 h-9')}
+      <div class="leading-tight flex-1 min-w-0">
+        <div class="text-white text-sm truncate">${r.post} · ${r.user}</div>
+        <div class="text-[11px] text-zinc-500 truncate">${r.mail}</div>
+      </div>
+      <button onclick="logout()" title="退出登录" class="text-zinc-500 hover:text-white transition-colors">${icon('logout','w-4 h-4')}</button>
+    </div>`;
+}
+/* 侧边栏激活光晕：切换页面时平滑滑到当前项 */
+function moveNavIndicator(){
+  const ind = document.getElementById('navIndicator');
+  const nav = document.getElementById('nav');
+  if(!ind || !nav) return;
+  const active = nav.querySelector('a[href="javascript:void(0)"]');
+  const links  = nav.querySelectorAll('a');
+  let target = null;
+  for(let i=0;i<links.length;i++){
+    if(links[i].className.indexOf('bg-white') !== -1){ target = links[i]; break; }
+  }
+  if(!active && !target) return;
+  const el = target || active;
+  const top = el.offsetTop, h = el.offsetHeight, w = el.offsetWidth, l = el.offsetLeft;
+  if(!h || !w){ ind.style.opacity = '0'; return; }   // 布局未就绪时隐藏，绝不乱飞
+  ind.style.width  = (w + 6) + 'px';
+  ind.style.height = (h + 6) + 'px';
+  ind.style.transform = 'translate3d(' + (l - 3) + 'px,' + (top - 3) + 'px,0)';
+  ind.style.opacity = '1';
+}
+
+function isActive(key){
+  if(state.page===key) return true;
+  if(state.page==='task-detail' && key==='tasks') return true;
+  if(state.page==='subtask-detail' && key==='subtasks') return true;
+  if(state.page==='hall-detail' && key==='hall') return true;
+  return false;
+}
+
+/* =========================================================
+   Header
+   ========================================================= */
+function renderHeader(){
+  const r = ROLES[state.role];
+  const label = PAGE_TITLE[state.page] || '工作台';
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = `
+    <span class="hover:text-zinc-900 cursor-pointer transition-colors">${r.label}</span>
+    ${icon('chevRight','w-4 h-4 text-zinc-300')}
+    <span class="text-zinc-900 font-medium">${label}</span>`;
+  if(!REDUCED){ bc.classList.remove('nav-active-in'); void bc.offsetWidth; bc.classList.add('nav-active-in'); }
+  document.getElementById('bellIcon').innerHTML = icon('bell','w-5 h-5');
+  document.getElementById('headerUser').innerHTML = `
+    ${avatarImg(r.avatar,'w-9 h-9 ring-2 ring-zinc-100')}
+    <div class="leading-tight hidden sm:block">
+      <div class="text-sm font-medium text-zinc-900">${r.user}</div>
+      <div class="text-[11px] text-zinc-400">${r.short}</div>
+    </div>`;
+}
+
+/* =========================================================
+   主渲染
+   ========================================================= */
+function renderMain(){
+  const map = {
+    dashboard: pageDashboard,
+    members: pageMembers,
+    tasks: pageTasks,
+    'task-detail': pageTaskDetail,
+    outputs: pageOutputs,
+    announcements: pageAnnouncements,
+    assets: pageAssets,
+    'dept-members': pageDeptMembers,
+    subtasks: pageSubtasks,
+    'subtask-detail': pageSubtaskDetail,
+    signups: pageSignups,
+    assignment: pageAssignment,
+    roster: pageRoster,
+    'announcements-min': pageAnnouncementsMin,
+    hall: pageHall,
+    'hall-detail': pageHallDetail,
+    'my-tasks': pageMyTasks,
+    'my-outputs': pageMyOutputs,
+    messages: pageMessages
+  };
+  const fn = map[state.page] || pageDashboard;
+  document.getElementById('main').innerHTML = fn();
+  if(state.__anim){ applyStagger(); state.__anim = false; }
+  if(state.page==='messages'){
+    setTimeout(()=>{ const b=document.getElementById('chatBody'); if(b) b.scrollTop=b.scrollHeight; },30);
+  }
+}
+
+/* =========================================================
+   页面 1 · 工作台（角色自适应）
+   ========================================================= */
+function pageDashboard(){
+  if(state.role==='minister') return dashboardMinister();
+  const totalTasks = DB.tasks.length;
+  const running = DB.subtasks.filter(s=>s.status==='进行中').length;
+  const pendingOut = DB.outputs.filter(o=>o.status==='待审核').length;
+  const memberCount = DB.members.length;
+
+  const rows = DB.tasks.map(t=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors cursor-pointer" onclick="go('task-detail',{id:'${t.id}'})">
+      <td class="px-5 py-4">
+        <div class="font-medium text-zinc-900">${t.name}</div>
+        <div class="text-[11px] text-zinc-400 mt-0.5">截止 ${t.deadline} · 负责人 ${t.owner}</div>
+      </td>
+      <td class="px-5 py-4">${statusBadge(t.status)}</td>
+      <td class="px-5 py-4 w-48">
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+          <span>${t.stages.filter(s=>s.state==='done').length} / 3 阶段</span>
+          <span>${Math.round(t.stages.filter(s=>s.state==='done').length/3*100)}%</span>
+        </div>
+        ${lineBar(Math.round(t.stages.filter(s=>s.state==='done').length/3*100))}
+      </td>
+      <td class="px-5 py-4 text-right">
+        <span class="text-sm font-medium text-ink-900 hover:text-blue-600 transition-colors">查看 →</span>
+      </td>
+    </tr>`).join('');
+
+  return `
+  ${pageHead('工作台', `${ROLES.president.label} · 全局视图，一屏掌握社团运转状态。`,
+    `${searchBox('搜索任务 / 成员','w-56')}${primaryBtn('新建任务','openTaskModal()')}`)}
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+    ${statCard('大任务总数', totalTasks, '含进行中与待审核', 'clipboard', 'ink')}
+    ${statCard('进行中子任务', running, '覆盖 4 个部门', 'layers', 'blue')}
+    ${statCard('待审核产出', pendingOut, '需要您确认或驳回', 'check', 'amber')}
+    ${statCard('社团成员', memberCount, '主席团 1 · 部长 5', 'users', 'green')}
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div class="xl:col-span-2 bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+        <h2 class="text-sm font-semibold text-zinc-900">任务概览</h2>
+        <button onclick="go('tasks')" class="text-[12px] text-zinc-400 hover:text-ink-900 transition-colors">全部任务 →</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+            <th class="px-5 py-3 font-medium">任务</th>
+            <th class="px-5 py-3 font-medium">状态</th>
+            <th class="px-5 py-3 font-medium">进度</th>
+            <th class="px-5 py-3 font-medium text-right">操作</th>
+          </tr></thead>
+          <tbody class="divide-y divide-zinc-100">${rows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">待办事项</h2>
+          ${badge(pendingOut+' 项','amber')}
+        </div>
+        <div class="space-y-3">
+          ${DB.outputs.filter(o=>o.status==='待审核').map(o=>`
+            <div class="flex items-start gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer" onclick="go('outputs')">
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">${icon('file','w-4 h-4')}</div>
+              <div class="min-w-0">
+                <p class="text-[13px] font-medium text-zinc-800 truncate">${o.name}</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">${o.member} · ${o.date}</p>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">最新公告</h2>
+          <button onclick="go('announcements')" class="text-[12px] text-zinc-400 hover:text-ink-900 transition-colors">管理 →</button>
+        </div>
+        <div class="space-y-3.5">
+          ${DB.announcements.slice(0,3).map(a=>`
+            <div class="flex items-start gap-3">
+              <span class="w-1.5 h-1.5 rounded-full bg-ink-900 mt-1.5 shrink-0"></span>
+              <div class="min-w-0">
+                <p class="text-[13px] text-zinc-700 clamp-1">${a.title}</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">${a.date} · ${a.author}</p>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function dashboardMinister(){
+  const myDept = ROLES.minister.dept;
+  const mySubs = DB.subtasks.filter(s=>s.dept===myDept);
+  const myMembers = DB.members.filter(m=>m.dept===myDept);
+  const pendingSignups = DB.subtasks.filter(s=>s.dept===myDept).reduce((n,s)=>n+s.signups.filter(x=>x.status==='待审核').length,0);
+  const pendingOut = DB.outputs.filter(o=>o.status==='待审核').length;
+
+  return `
+  ${pageHead('工作台', `${myDept} · 管理本部门子任务、报名与产出。`,
+    `${primaryBtn('创建子任务','openSubtaskModal()')}`)}
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+    ${statCard('部门成员', myMembers.length, myDept, 'users', 'ink')}
+    ${statCard('部门子任务', mySubs.length, '进行中 '+mySubs.filter(s=>s.status==='进行中').length, 'layers', 'blue')}
+    ${statCard('待审核报名', pendingSignups, '需同意或不同意', 'flag', 'amber')}
+    ${statCard('待审核产出', pendingOut, '来自部门成员', 'check', 'green')}
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div class="xl:col-span-2 bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-zinc-900">子任务进度</h2>
+        <button onclick="go('subtasks')" class="text-[12px] text-zinc-400 hover:text-ink-900 transition-colors">全部 →</button>
+      </div>
+      <div class="space-y-5">
+        ${mySubs.map(s=>{
+          const done = s.stages.filter(x=>x.state==='done').length;
+          return `<div class="p-4 rounded-xl border border-zinc-100 hover:border-zinc-200 hover:shadow-soft transition-all">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p class="text-sm font-medium text-zinc-900">${s.name}</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">${taskName(s.taskId)} · 名额 ${s.signups.filter(x=>x.status==='已同意').length}/${s.quota}</p>
+              </div>
+              ${statusBadge(s.status)}
+            </div>
+            ${stepBar(s.stages)}
+          </div>`;
+        }).join('') || emptyState('暂无子任务','点击右上角创建')}
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-4">待审核报名</h2>
+        <div class="space-y-3">
+          ${DB.subtasks.filter(s=>s.dept===myDept).flatMap(s=>s.signups.filter(x=>x.status==='待审核').map(x=>({s,x}))).slice(0,4).map(({s,x})=>{
+            const m = memberById(x.mid);
+            return `<div class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-zinc-50 transition-colors">
+              ${avatarImg(m.avatar,'w-8 h-8')}
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium text-zinc-800">${m.name}</p>
+                <p class="text-[11px] text-zinc-400">${s.name} · ${x.div}</p>
+              </div>
+              <button onclick="agreeSignup('${s.id}','${x.mid}')" class="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">同意</button>
+            </div>`;
+          }).join('') || emptyState('暂无待审核','')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 社团人员信息管理（查看 & 编辑）
+   ========================================================= */
+function pageMembers(){
+  const rows = DB.members.map(m=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5">
+        <div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}
+          <div><div class="font-medium text-zinc-900">${m.name}</div><div class="text-[11px] text-zinc-400">${m.post}</div></div>
+        </div>
+      </td>
+      <td class="px-5 py-3.5 text-zinc-500 tabular-nums">${m.sid}</td>
+      <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${m.dept}</span></td>
+      <td class="px-5 py-3.5">
+        <div class="flex flex-wrap gap-1.5 max-w-[260px]">
+          ${m.projects.map(p=>`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[11px]">${p}</span>`).join('')}
+        </div>
+      </td>
+      <td class="px-5 py-3.5 text-right whitespace-nowrap">
+        <button onclick="viewMember('${m.id}')" class="text-[12px] text-zinc-500 hover:text-ink-900 transition-colors">查看</button>
+        <span class="text-zinc-200 mx-2">|</span>
+        <button onclick="editMember('${m.id}')" class="text-[12px] text-ink-900 font-medium hover:text-blue-600 transition-colors">编辑</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+  ${pageHead('社团人员信息', '主席团 & 社长可查看并编辑全部成员档案与项目归属。',
+    `${searchBox('搜索姓名 / 学号 / 部门')}${ghostBtn('导出名单','toast(\'名单已导出\')')}`)}
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+    ${statCard('成员总数', DB.members.length, '在册', 'users', 'ink')}
+    ${statCard('部门数', [...new Set(DB.members.map(m=>m.dept))].length, '含主席团', 'layers', 'blue')}
+    ${statCard('部长人数', DB.members.filter(m=>m.post==='部长').length, '各部门负责人', 'user', 'amber')}
+    ${statCard('参与项目', [...new Set(DB.members.flatMap(m=>m.projects))].length, '跨部门协作', 'flag', 'green')}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+      <h2 class="text-sm font-semibold text-zinc-900">成员档案 <span class="text-zinc-400 font-normal">(${DB.members.length})</span></h2>
+      ${badge('数据库同步','zinc')}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">姓名</th>
+          <th class="px-5 py-3 font-medium">学号</th>
+          <th class="px-5 py-3 font-medium">所处部门</th>
+          <th class="px-5 py-3 font-medium">参与的项目</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows}</tbody>
+      </table>
+    </div>
+    <div class="px-5 py-4 border-t border-zinc-100 text-[12px] text-zinc-400">共 ${DB.members.length} 条 · 主席团与部长共享可见</div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 部门人员信息（部长）
+   ========================================================= */
+function pageDeptMembers(){
+  const dept = ROLES.minister.dept;
+  const list = DB.members.filter(m=>m.dept===dept);
+  const rows = list.map(m=>{
+    const outCount = DB.outputs.filter(o=>o.member===m.name).length;
+    return `<tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5">
+        <div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}
+          <div><div class="font-medium text-zinc-900">${m.name}</div><div class="text-[11px] text-zinc-400">${m.post}</div></div>
+        </div>
+      </td>
+      <td class="px-5 py-3.5 text-zinc-500 tabular-nums">${m.sid}</td>
+      <td class="px-5 py-3.5">
+        <div class="flex flex-wrap gap-1.5 max-w-[240px]">
+          ${m.projects.map(p=>`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[11px]">${p}</span>`).join('')}
+        </div>
+      </td>
+      <td class="px-5 py-3.5"><span class="text-zinc-600">${outCount} 份</span></td>
+      <td class="px-5 py-3.5 text-right whitespace-nowrap">
+        <button onclick="viewMember('${m.id}')" class="text-[12px] text-zinc-500 hover:text-ink-900 transition-colors">查看</button>
+        <span class="text-zinc-200 mx-2">|</span>
+        <button onclick="editMember('${m.id}')" class="text-[12px] text-ink-900 font-medium hover:text-blue-600 transition-colors">编辑</button>
+        <span class="text-zinc-200 mx-2">|</span>
+        <button onclick="go('outputs')" class="text-[12px] text-emerald-600 font-medium hover:text-emerald-700 transition-colors">产出审核</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  ${pageHead('部门人员信息', `${dept} · 查看并编辑本部门成员，审核其产出。`,
+    `${searchBox('搜索本部门成员','w-56')}${primaryBtn('添加成员','openAddMemberModal()')}`)}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+    ${statCard('本部门成员', list.length, dept, 'users', 'ink')}
+    ${statCard('待审核报名', DB.subtasks.filter(s=>s.dept===dept).reduce((n,s)=>n+s.signups.filter(x=>x.status==='待审核').length,0), '来自子任务', 'flag', 'amber')}
+    ${statCard('待审核产出', DB.outputs.filter(o=>o.status==='待审核').length, '需确认或驳回', 'check', 'blue')}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+      <h2 class="text-sm font-semibold text-zinc-900">部门成员 <span class="text-zinc-400 font-normal">(${list.length})</span></h2>
+      <span class="text-[11px] text-zinc-400">与主席团共享</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">姓名</th>
+          <th class="px-5 py-3 font-medium">学号</th>
+          <th class="px-5 py-3 font-medium">参与的项目</th>
+          <th class="px-5 py-3 font-medium">产出数</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 任务管理（主席团）
+   ========================================================= */
+function pageTasks(){
+  const cards = DB.tasks.map(t=>{
+    const done = t.stages.filter(s=>s.state==='done').length;
+    const subs = DB.subtasks.filter(s=>s.taskId===t.id);
+    return `<article class="bg-white rounded-2xl border border-zinc-200 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all p-5 flex flex-col">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <h3 class="font-semibold text-zinc-900 text-base leading-snug">${t.name}</h3>
+        ${statusBadge(t.status)}
+      </div>
+      <p class="text-sm text-zinc-500 clamp-2 mb-4">${t.desc}</p>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-2"><span>阶段进度</span><span>${done} / 3</span></div>
+        ${stepBar(t.stages)}
+      </div>
+
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
+        ${t.depts.map(d=>`<span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[11px]">${d}</span>`).join('')}
+      </div>
+
+      <div class="mt-auto flex items-center justify-between pt-3 border-t border-zinc-100">
+        <button onclick="openDeptAssign('${t.id}')" class="text-[12px] font-medium text-zinc-600 hover:text-ink-900 transition-colors">部门级分工设置</button>
+        <button onclick="go('task-detail',{id:'${t.id}'})" class="text-sm font-medium text-ink-900 hover:text-blue-600 active:text-blue-700 transition-colors">查看详情 →</button>
+      </div>
+    </article>`;
+  }).join('');
+
+  return `
+  ${pageHead('任务管理', '创建大任务、设置部门分工与阶段进度，并审核产出。',
+    `${searchBox('搜索任务名称')}${primaryBtn('新建任务','openTaskModal()')}`)}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards}</div>`;
+}
+
+/* =========================================================
+   页面 · 任务详情（主席团）
+   ========================================================= */
+function pageTaskDetail(){
+  const t = DB.tasks.find(x=>x.id===state.params.id) || DB.tasks[0];
+  const subs = DB.subtasks.filter(s=>s.taskId===t.id);
+  const outs = DB.outputs.filter(o=>o.task===t.name);
+
+  const deptRows = t.depts.map(d=>{
+    const minister = DB.members.find(m=>m.dept===d && m.post==='部长');
+    const ds = subs.filter(s=>s.dept===d);
+    return `<tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${d}</span></td>
+      <td class="px-5 py-3.5">
+        <div class="flex items-center gap-2">${minister?avatarImg(minister.avatar,'w-7 h-7'):''}<span class="text-zinc-800">${minister?minister.name:'未指派'}</span></div>
+      </td>
+      <td class="px-5 py-3.5 text-zinc-500">${ds.length} 个子任务</td>
+      <td class="px-5 py-3.5 text-zinc-500">${ds.map(s=>s.name).join('、')||'—'}</td>
+      <td class="px-5 py-3.5 text-right">
+        <button onclick="openDeptAssign('${t.id}','${d}')" class="text-[12px] font-medium text-ink-900 hover:text-blue-600 transition-colors">设置分工</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="flex items-center gap-2 text-sm text-zinc-500 mb-5">
+    <button onclick="go('tasks')" class="inline-flex items-center gap-1.5 hover:text-ink-900 transition-colors">${icon('arrowLeft','w-4 h-4')}返回任务管理</button>
+  </div>
+
+  ${pageHead(t.name, t.desc,
+    `${ghostBtn('编辑任务','toast(\'已进入编辑模式\')')}${primaryBtn('新建子任务','openSubtaskModal(\''+t.id+'\')')}`)}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="lg:col-span-2 space-y-6">
+      <!-- 基本信息 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">基本信息</h2>
+          ${statusBadge(t.status)}
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          <div><p class="text-[11px] text-zinc-400">负责人</p><p class="text-sm text-zinc-800 mt-1">${t.owner}</p></div>
+          <div><p class="text-[11px] text-zinc-400">截止时间</p><p class="text-sm text-zinc-800 mt-1">${t.deadline}</p></div>
+          <div><p class="text-[11px] text-zinc-400">参与部门</p><p class="text-sm text-zinc-800 mt-1">${t.depts.length} 个</p></div>
+          <div><p class="text-[11px] text-zinc-400">子任务</p><p class="text-sm text-zinc-800 mt-1">${subs.length} 个</p></div>
+        </div>
+        <p class="text-[11px] text-zinc-400 mb-2">可调用资源</p>
+        <div class="flex flex-wrap gap-2">
+          ${t.resources.map(r=>`<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-[12px] text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">${icon('file','w-3.5 h-3.5 text-zinc-400')}${r}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 进度管理 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-semibold text-zinc-900">进度管理</h2>
+          <span class="text-[11px] text-zinc-400">点击阶段可设为当前所处阶段</span>
+        </div>
+        <div class="py-6">${stepBar(t.stages)}</div>
+        <div class="flex flex-wrap gap-2">
+          ${t.stages.map((s,i)=>`<button onclick="setTaskStage('${t.id}',${i})" class="px-3 py-1.5 text-[12px] rounded-lg border transition-all ${i===t.cur-1?'border-ink-900 bg-ink-900 text-white':'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}">阶段 ${i+1} · ${s.name}</button>`).join('')}
+        </div>
+      </div>
+
+      <!-- 部门级分工 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <h2 class="text-sm font-semibold text-zinc-900">部门级分工设置</h2>
+          <button onclick="openDeptAssign('${t.id}')" class="text-[12px] text-ink-900 font-medium hover:text-blue-600 transition-colors">+ 新增部门</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+              <th class="px-5 py-3 font-medium">部门</th>
+              <th class="px-5 py-3 font-medium">负责部长</th>
+              <th class="px-5 py-3 font-medium">子任务</th>
+              <th class="px-5 py-3 font-medium">子任务名称</th>
+              <th class="px-5 py-3 font-medium text-right">操作</th>
+            </tr></thead>
+            <tbody class="divide-y divide-zinc-100">${deptRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <!-- 子任务 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-4">下属子任务</h2>
+        <div class="space-y-3">
+          ${subs.map(s=>`
+            <div class="p-3 rounded-xl border border-zinc-100 hover:border-zinc-200 hover:shadow-soft transition-all cursor-pointer" onclick="go('subtask-detail',{id:'${s.id}'})">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <p class="text-[13px] font-medium text-zinc-800">${s.name}</p>
+                ${statusBadge(s.status)}
+              </div>
+              <p class="text-[11px] text-zinc-400 mb-2">${s.dept} · ${s.signups.filter(x=>x.status==='已同意').length}/${s.quota} 人</p>
+              ${lineBar(Math.round(s.stages.filter(x=>x.state==='done').length/3*100))}
+            </div>`).join('') || emptyState('暂无子任务','')}
+        </div>
+      </div>
+
+      <!-- 产出 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">产出管理</h2>
+          <button onclick="go('outputs')" class="text-[12px] text-zinc-400 hover:text-ink-900 transition-colors">全部 →</button>
+        </div>
+        <div class="space-y-3">
+          ${outs.map(o=>`
+            <div class="p-3 rounded-xl bg-zinc-50/60">
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-[13px] font-medium text-zinc-800">${o.name}</p>
+                ${statusBadge(o.status)}
+              </div>
+              <p class="text-[11px] text-zinc-400 mt-1">${o.member} · ${o.date}</p>
+              ${o.status==='待审核'?`<div class="flex gap-2 mt-2.5">
+                <button onclick="confirmOutput('${o.id}',true)" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] hover:bg-emerald-700 transition-colors">确认</button>
+                <button onclick="confirmOutput('${o.id}',false)" class="px-2.5 py-1 rounded-lg border border-red-300 text-red-500 text-[11px] hover:bg-red-50 transition-colors">驳回</button>
+              </div>`:''}
+            </div>`).join('') || emptyState('暂无产出','')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 产出审核
+   ========================================================= */
+function pageOutputs(){
+  const rows = DB.outputs.map(o=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-zinc-100 text-zinc-500 flex items-center justify-center shrink-0">${icon('file','w-4 h-4')}</div>
+          <div class="min-w-0">
+            <p class="font-medium text-zinc-900">${o.name}</p>
+            <p class="text-[11px] text-zinc-400 mt-0.5">${o.file}</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-5 py-4 text-zinc-500">${o.task}</td>
+      <td class="px-5 py-4 text-zinc-500">${o.sub}</td>
+      <td class="px-5 py-4 text-zinc-700">${o.member}</td>
+      <td class="px-5 py-4 text-zinc-500 tabular-nums">${o.date}</td>
+      <td class="px-5 py-4">${statusBadge(o.status)}</td>
+      <td class="px-5 py-4 text-right whitespace-nowrap">
+        ${o.status==='待审核' ? `
+          <button onclick="confirmOutput('${o.id}',true)" class="px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">确认</button>
+          <button onclick="confirmOutput('${o.id}',false)" class="ml-1.5 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all">驳回</button>
+        ` : `<button onclick="toast('已打开产出：${o.name}')" class="text-[12px] text-zinc-500 hover:text-ink-900 transition-colors">查看</button>`}
+      </td>
+    </tr>`).join('');
+
+  const pending = DB.outputs.filter(o=>o.status==='待审核').length;
+  return `
+  ${pageHead('产出审核', '审核成员提交的产出物，确认通过或驳回并填写意见。',
+    `${searchBox('搜索产出名称','w-56')}${ghostBtn('批量导出','toast(\'已导出\')')}`)}
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+    ${statCard('待审核', pending, '需要处理', 'check', 'amber')}
+    ${statCard('已通过', DB.outputs.filter(o=>o.status==='已通过').length, '本月累计', 'check', 'green')}
+    ${statCard('已驳回', DB.outputs.filter(o=>o.status==='已驳回').length, '待重新提交', 'x', 'rose')}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">产出物</th>
+          <th class="px-5 py-3 font-medium">所属任务</th>
+          <th class="px-5 py-3 font-medium">子任务</th>
+          <th class="px-5 py-3 font-medium">提交人</th>
+          <th class="px-5 py-3 font-medium">提交时间</th>
+          <th class="px-5 py-3 font-medium">状态</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 活动与公告
+   ========================================================= */
+function pageAnnouncements(){
+  const cards = DB.announcements.map(a=>`
+    <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft hover:shadow-lift transition-all p-5">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex items-center gap-2">
+          ${a.pinned?`<span class="px-2 py-0.5 rounded-md bg-ink-900 text-white text-[10px]">置顶</span>`:''}
+          ${badge(a.type, a.type==='招募'?'blue':a.type==='通知'?'amber':'zinc')}
+        </div>
+        <span class="text-[11px] text-zinc-400">${a.date}</span>
+      </div>
+      <h3 class="font-semibold text-zinc-900 mb-1.5">${a.title}</h3>
+      <p class="text-[13px] text-zinc-500 clamp-2 mb-4">${a.content}</p>
+      <div class="flex items-center justify-between pt-3 border-t border-zinc-100">
+        <span class="text-[11px] text-zinc-400">发布人 · ${a.author}</span>
+        <div class="flex items-center gap-3">
+          <button onclick="toast('已进入编辑：${a.title}')" class="text-[12px] text-zinc-500 hover:text-ink-900 transition-colors">编辑</button>
+          <button onclick="toast('已删除公告')" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors">删除</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  return `
+  ${pageHead('活动与公告', '发布并编辑社团活动通知、项目公告与招募信息。',
+    `${primaryBtn('发布公告','openAnnouncementModal()')}`)}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">${cards}</div>`;
+}
+
+/* =========================================================
+   页面 · 资产管理
+   ========================================================= */
+function pageAssets(){
+  const rows = DB.assets.map(a=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-zinc-100 text-zinc-500 flex items-center justify-center">${icon('box','w-4 h-4')}</div>
+          <span class="font-medium text-zinc-900">${a.name}</span>
+        </div>
+      </td>
+      <td class="px-5 py-4 text-zinc-600">${a.qty}</td>
+      <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${a.dept}</span></td>
+      <td class="px-5 py-4">${statusBadge(a.status==='在用'?'进行中':'已结束').replace('进行中','在用').replace('已结束','闲置')}</td>
+      <td class="px-5 py-4 text-zinc-700">${a.keeper}</td>
+      <td class="px-5 py-4 text-right">
+        <button onclick="toast('已进入编辑：${a.name}')" class="text-[12px] font-medium text-ink-900 hover:text-blue-600 transition-colors">编辑</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+  ${pageHead('资产管理', '登记社团公共物资，掌握调用与保管情况。',
+    `${searchBox('搜索资产','w-56')}${primaryBtn('新增资产','toast(\'新增资产\')')}`)}
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">资产名称</th>
+          <th class="px-5 py-3 font-medium">数量</th>
+          <th class="px-5 py-3 font-medium">归属部门</th>
+          <th class="px-5 py-3 font-medium">状态</th>
+          <th class="px-5 py-3 font-medium">保管人</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 子任务管理（部长）
+   ========================================================= */
+function pageSubtasks(){
+  const dept = ROLES.minister.dept;
+  const list = DB.subtasks.filter(s=>s.dept===dept);
+  const cards = list.map(s=>{
+    const approved = s.signups.filter(x=>x.status==='已同意').length;
+    return `<article class="bg-white rounded-2xl border border-zinc-200 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all p-5 flex flex-col">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <h3 class="font-semibold text-zinc-900 leading-snug">${s.name}</h3>
+        ${statusBadge(s.status)}
+      </div>
+      <p class="text-[12px] text-zinc-400 mb-1">所属任务 · ${taskName(s.taskId)}</p>
+      <p class="text-sm text-zinc-500 clamp-2 mb-4">${s.desc}</p>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-2">
+          <span>进度</span><span>${s.stages.filter(x=>x.state==='done').length} / 3</span>
+        </div>
+        ${stepBar(s.stages)}
+      </div>
+
+      <div class="flex items-center justify-between mb-4 p-2.5 rounded-xl bg-zinc-50">
+        <span class="text-[12px] text-zinc-500">已录取 / 名额</span>
+        <span class="text-sm font-semibold text-zinc-900">${approved} / ${s.quota}</span>
+      </div>
+
+      <div class="mt-auto grid grid-cols-2 gap-2">
+        <button onclick="go('signups',{id:'${s.id}'})" class="py-2 rounded-lg text-[12px] font-medium border border-zinc-200 text-zinc-700 hover:bg-zinc-50 active:scale-[0.98] transition-all">报名管理</button>
+        <button onclick="go('subtask-detail',{id:'${s.id}'})" class="py-2 rounded-lg text-[12px] font-medium bg-ink-900 text-white hover:bg-ink-800 active:scale-[0.98] transition-all">成员管理</button>
+      </div>
+    </article>`;
+  }).join('');
+
+  return `
+  ${pageHead('子任务管理', `${dept} · 设置子任务、报名入口、分工与公告。`,
+    `${searchBox('搜索子任务','w-56')}${primaryBtn('创建子任务','openSubtaskModal()')}`)}
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards||emptyState('暂无子任务','点击右上角创建')}</div>`;
+}
+
+/* =========================================================
+   页面 · 子任务详情（部长）
+   ========================================================= */
+function pageSubtaskDetail(){
+  const s = DB.subtasks.find(x=>x.id===state.params.id) || DB.subtasks[0];
+  const approved = s.signups.filter(x=>x.status==='已同意').length;
+
+  const signupRows = s.signups.map(x=>{
+    const m = memberById(x.mid);
+    return `<tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}<span class="font-medium text-zinc-900">${m.name}</span></div>
+      </td>
+      <td class="px-5 py-3 text-zinc-500 tabular-nums">${m.sid}</td>
+      <td class="px-5 py-3 text-zinc-500">${x.div}</td>
+      <td class="px-5 py-3">${statusBadge(x.status)}</td>
+      <td class="px-5 py-3 text-right whitespace-nowrap">
+        <button onclick="agreeSignup('${s.id}','${x.mid}')" class="px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+        <button onclick="rejectSignup('${s.id}','${x.mid}')" class="ml-1.5 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all">不同意</button>
+        <a href="javascript:void(0)" onclick="removeSignup('${s.id}','${x.mid}')" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="flex items-center gap-2 text-sm text-zinc-500 mb-5">
+    <button onclick="go('subtasks')" class="inline-flex items-center gap-1.5 hover:text-ink-900 transition-colors">${icon('arrowLeft','w-4 h-4')}返回子任务管理</button>
+  </div>
+
+  ${pageHead(s.name, `${taskName(s.taskId)} · ${s.dept}`,
+    `${ghostBtn('发布公告','openNoticeModal(\''+s.id+'\')')}${primaryBtn('重新分配','go(\'assignment\',{id:\''+s.id+'\'})','split')}`)}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+      <!-- 基本信息 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">基本信息</h2>
+          ${statusBadge(s.status)}
+        </div>
+        <p class="text-sm text-zinc-600 mb-5">${s.desc}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          <div><p class="text-[11px] text-zinc-400">所属任务</p><p class="text-sm text-zinc-800 mt-1">${taskName(s.taskId)}</p></div>
+          <div><p class="text-[11px] text-zinc-400">归属部门</p><p class="text-sm text-zinc-800 mt-1">${s.dept}</p></div>
+          <div><p class="text-[11px] text-zinc-400">名额</p><p class="text-sm text-zinc-800 mt-1">${approved} / ${s.quota}</p></div>
+          <div><p class="text-[11px] text-zinc-400">报名人数</p><p class="text-sm text-zinc-800 mt-1">${s.signups.length} 人</p></div>
+        </div>
+        <p class="text-[11px] text-zinc-400 mb-2">可调用资源</p>
+        <div class="flex flex-wrap gap-2">
+          ${s.resources.map(r=>`<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-[12px] text-zinc-600">${icon('file','w-3.5 h-3.5 text-zinc-400')}${r}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 进度管理 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-semibold text-zinc-900">进度管理</h2>
+          <span class="text-[11px] text-zinc-400">可设置阶段 1 / 2 / 3 与当前所处阶段</span>
+        </div>
+        <div class="py-6">${stepBar(s.stages)}</div>
+        <div class="flex flex-wrap gap-2">
+          ${s.stages.map((st,i)=>`<button onclick="setSubStage('${s.id}',${i})" class="px-3 py-1.5 text-[12px] rounded-lg border transition-all ${st.state==='active'?'border-ink-900 bg-ink-900 text-white':'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}">阶段 ${i+1} · ${st.name}</button>`).join('')}
+        </div>
+      </div>
+
+      <!-- 成员管理 / 报名 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <h2 class="text-sm font-semibold text-zinc-900">成员管理 · 报名审核</h2>
+          <div class="flex items-center gap-3">
+            <button onclick="go('roster',{id:'${s.id}'})" class="text-[12px] text-zinc-500 hover:text-ink-900 transition-colors">成员名单 / 移入移出</button>
+            <button onclick="go('assignment',{id:'${s.id}'})" class="text-[12px] text-ink-900 font-medium hover:text-blue-600 transition-colors">分工设置 →</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+              <th class="px-5 py-3 font-medium">成员</th>
+              <th class="px-5 py-3 font-medium">学号</th>
+              <th class="px-5 py-3 font-medium">意向分工</th>
+              <th class="px-5 py-3 font-medium">报名状态</th>
+              <th class="px-5 py-3 font-medium text-right">操作</th>
+            </tr></thead>
+            <tbody class="divide-y divide-zinc-100">${signupRows || `<tr><td colspan="5">${emptyState('暂无报名','等待成员在任务大厅报名')}</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <!-- 子任务公告 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-zinc-900">子任务公告</h2>
+          <button onclick="openNoticeModal('${s.id}')" class="text-[12px] text-ink-900 font-medium hover:text-blue-600 transition-colors">+ 发布</button>
+        </div>
+        <div class="space-y-3">
+          ${s.notices.map(n=>`
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-50/70">
+              <div class="w-7 h-7 rounded-lg bg-white border border-zinc-200 text-zinc-400 flex items-center justify-center shrink-0">${icon('megaphone','w-3.5 h-3.5')}</div>
+              <p class="text-[12px] text-zinc-600 leading-relaxed">${n}</p>
+            </div>`).join('') || emptyState('暂无公告','')}
+        </div>
+      </div>
+
+      <!-- 产出上传 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-3">子任务产出上传</h2>
+        <div onclick="openUploadModal('${s.name}')" class="border-2 border-dashed border-zinc-200 rounded-xl p-5 text-center hover:border-ink-900/40 hover:bg-zinc-50 transition-colors cursor-pointer">
+          <div class="text-zinc-300 flex justify-center mb-2">${icon('upload','w-7 h-7')}</div>
+          <p class="text-[12px] text-zinc-500">点击上传本子任务产出</p>
+          <p class="text-[10px] text-zinc-400 mt-0.5">PDF / Word / 图片，≤20MB</p>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 报名管理（部长）
+   ========================================================= */
+function pageSignups(){
+  const s = DB.subtasks.find(x=>x.id===state.params.id) || DB.subtasks.find(x=>x.dept===ROLES.minister.dept && x.signups.length) || DB.subtasks[0];
+  const rows = s.signups.map(x=>{
+    const m = memberById(x.mid);
+    return `<tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5">
+        <div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}
+          <div><div class="font-medium text-zinc-900">${m.name}</div><div class="text-[11px] text-zinc-400">${m.post}</div></div>
+        </div>
+      </td>
+      <td class="px-5 py-3.5 text-zinc-500 tabular-nums">${m.sid}</td>
+      <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${m.dept}</span></td>
+      <td class="px-5 py-3.5">${statusBadge(x.status)}</td>
+      <td class="px-5 py-3.5 text-right whitespace-nowrap">
+        <button onclick="agreeSignup('${s.id}','${x.mid}')" class="px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+        <button onclick="rejectSignup('${s.id}','${x.mid}')" class="ml-1.5 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all">不同意</button>
+        <a href="javascript:void(0)" onclick="removeSignup('${s.id}','${x.mid}')" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  ${pageHead('报名管理', '审核成员报名申请，同意或不同意并可直接移出。',
+    `${searchBox('搜索成员 / 学号','w-56')}`)}
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center">${icon('flag','w-5 h-5')}</div>
+      <div>
+        <p class="text-[11px] text-zinc-400 uppercase tracking-wide">当前子任务</p>
+        <p class="text-base font-semibold text-zinc-900">${s.name}</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-6">
+      <div class="text-center"><p class="text-xl font-semibold text-zinc-900">${s.signups.length}</p><p class="text-[11px] text-zinc-400">报名</p></div>
+      <div class="text-center"><p class="text-xl font-semibold text-emerald-600">${s.signups.filter(x=>x.status==='已同意').length}</p><p class="text-[11px] text-zinc-400">已同意</p></div>
+      <div class="text-center"><p class="text-xl font-semibold text-amber-600">${s.signups.filter(x=>x.status==='待审核').length}</p><p class="text-[11px] text-zinc-400">待审核</p></div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">成员姓名</th>
+          <th class="px-5 py-3 font-medium">学号</th>
+          <th class="px-5 py-3 font-medium">部门</th>
+          <th class="px-5 py-3 font-medium">报名状态</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows || `<tr><td colspan="5">${emptyState('暂无报名','')}</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 分工设置（部长）
+   ========================================================= */
+function pageAssignment(){
+  const s = DB.subtasks.find(x=>x.id===state.params.id) || DB.subtasks.find(x=>x.dept===ROLES.minister.dept) || DB.subtasks[0];
+  const approved = s.signups.filter(x=>x.status==='已同意');
+  const divisions = ['宣讲主持','物料对接','场地协调','数据整理','机动支援'];
+
+  const rows = approved.map(x=>{
+    const m = memberById(x.mid);
+    return `<tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5">
+        <div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}<span class="font-medium text-zinc-900">${m.name}</span></div>
+      </td>
+      <td class="px-5 py-3.5 text-zinc-500">${x.div}</td>
+      <td class="px-5 py-3.5">
+        <div class="relative inline-block">
+          <select onchange="assignDiv('${s.id}','${x.mid}',this.value)" class="appearance-none pl-3 pr-8 py-1.5 text-[12px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 cursor-pointer">
+            ${divisions.map(d=>`<option ${d===x.div?'selected':''}>${d}</option>`).join('')}
+          </select>
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-3.5 h-3.5')}</span>
+        </div>
+      </td>
+      <td class="px-5 py-3.5 text-right">
+        <button onclick="toast('已保存 ${m.name} 的分工')" class="text-[12px] font-medium text-ink-900 hover:text-blue-600 transition-colors">保存</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  ${pageHead('分工设置', '为已录取成员指定具体分工，支持批量调整。',
+    `${primaryBtn('自动平均分配','toast(\'已按人数平均分配\')','sparkle')}`)}
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center">${icon('split','w-5 h-5')}</div>
+      <div>
+        <p class="text-[11px] text-zinc-400 uppercase tracking-wide">当前子任务</p>
+        <p class="text-base font-semibold text-zinc-900">${s.name} · 分工安排</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <label class="text-sm text-zinc-500">分配策略</label>
+      <div class="relative">
+        <select class="appearance-none pl-4 pr-10 py-2.5 text-sm font-medium rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 cursor-pointer">
+          <option>按擅长方向手动指定</option>
+          <option>按报名顺序自动分配</option>
+          <option>平均分配</option>
+        </select>
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-zinc-900">已录取成员 <span class="text-zinc-400 font-normal">(${approved.length})</span></h2>
+      <span class="text-[11px] text-zinc-400">修改后即时生效</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">成员</th>
+          <th class="px-5 py-3 font-medium">意向分工</th>
+          <th class="px-5 py-3 font-medium">分配分工</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows || `<tr><td colspan="4">${emptyState('暂无已录取成员','请先在报名管理中同意报名')}</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 成员名单（部长 · 移入移出）
+   ========================================================= */
+function pageRoster(){
+  const s = DB.subtasks.find(x=>x.id===state.params.id) || DB.subtasks.find(x=>x.dept===ROLES.minister.dept) || DB.subtasks[0];
+  const members = s.signups.filter(x=>x.status==='已同意').map(x=>({m:memberById(x.mid),div:x.div}));
+
+  const rows = members.map(({m,div})=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-3.5"><div class="flex items-center gap-3">${avatarImg(m.avatar,'w-8 h-8')}<span class="font-medium text-zinc-900">${m.name}</span></div></td>
+      <td class="px-5 py-3.5 text-zinc-500 tabular-nums">${m.sid}</td>
+      <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${m.dept}</span></td>
+      <td class="px-5 py-3.5 text-zinc-600">${div}</td>
+      <td class="px-5 py-3.5 text-right">
+        <button onclick="removeSignup('${s.id}','${m.id}')" class="px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all">移出</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+  ${pageHead('成员名单', `${s.name} · 已录取成员，可移入或移出。`,
+    `${ghostBtn('批量导入','toast(\'已打开批量导入\')')}${primaryBtn('移入成员','openAddMemberModal(\''+s.id+'\')')}`)}
+
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-zinc-900">当前成员 <span class="text-zinc-400 font-normal">(${members.length}/${s.quota})</span></h2>
+      ${badge('名额剩余 '+(s.quota-members.length),'blue')}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">成员</th>
+          <th class="px-5 py-3 font-medium">学号</th>
+          <th class="px-5 py-3 font-medium">部门</th>
+          <th class="px-5 py-3 font-medium">分工</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows || `<tr><td colspan="5">${emptyState('暂无成员','')}</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 子任务公告（部长）
+   ========================================================= */
+function pageAnnouncementsMin(){
+  const dept = ROLES.minister.dept;
+  const list = DB.subtasks.filter(s=>s.dept===dept);
+  return `
+  ${pageHead('子任务公告', '以类似群公告的形式向成员推送提醒。',
+    `${primaryBtn('发布公告','openNoticeModal()')}`)}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    ${list.map(s=>`
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 class="font-semibold text-zinc-900">${s.name}</h3>
+            <p class="text-[11px] text-zinc-400 mt-0.5">${taskName(s.taskId)}</p>
+          </div>
+          ${badge(s.notices.length+' 条公告','zinc')}
+        </div>
+        <div class="space-y-2.5 mb-4">
+          ${(s.notices.length?s.notices:['暂无公告']).map(n=>`
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-zinc-50/70">
+              <div class="w-7 h-7 rounded-lg bg-white border border-zinc-200 text-zinc-400 flex items-center justify-center shrink-0">${icon('megaphone','w-3.5 h-3.5')}</div>
+              <p class="text-[12px] text-zinc-600 leading-relaxed">${n}</p>
+            </div>`).join('')}
+        </div>
+        <button onclick="openNoticeModal('${s.id}')" class="w-full py-2 rounded-lg text-[12px] font-medium border border-zinc-200 text-zinc-700 hover:bg-zinc-50 active:scale-[0.98] transition-all">+ 发布到本子任务</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 任务大厅（成员）
+   ========================================================= */
+function pageHall(){
+  const filter = state.filter || '全部';
+  const list = filter==='全部' ? DB.subtasks
+             : filter==='进行中' ? DB.subtasks.filter(s=>s.status==='进行中')
+             : DB.subtasks.filter(s=>s.status==='已结束');
+
+  const tabs = ['全部','进行中','已结束'];
+  const cards = list.map(s=>{
+    const approved = s.signups.filter(x=>x.status==='已同意').length;
+    const remain = Math.max(0, s.quota-approved);
+    const joined = s.signups.some(x=>x.mid==='m3');
+    return `<article class="bg-white rounded-2xl border border-zinc-200 shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition-all p-5 flex flex-col">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <h3 class="font-semibold text-zinc-900 leading-snug">${s.name}</h3>
+        ${statusBadge(s.status)}
+      </div>
+      <p class="text-[12px] text-zinc-400 mb-4">所属大任务 · ${taskName(s.taskId)}</p>
+
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] text-zinc-400">剩余名额</span>
+        <span class="text-[12px] font-semibold ${remain>0?'text-zinc-900':'text-zinc-400'}">${remain} / ${s.quota}</span>
+      </div>
+      <div class="mb-4">${lineBar(Math.round(approved/s.quota*100), remain>0?'bg-ink-900':'bg-zinc-300')}</div>
+
+      <div class="flex items-center gap-1.5 mb-4 flex-wrap">
+        <span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[11px]">${s.dept}</span>
+        <span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[11px]">阶段 ${s.stages.filter(x=>x.state==='done').length}/3</span>
+      </div>
+
+      <div class="mt-auto grid grid-cols-2 gap-2">
+        <button onclick="go('hall-detail',{id:'${s.id}'})" class="py-2 rounded-lg text-[12px] font-medium border border-zinc-200 text-zinc-700 hover:bg-zinc-50 active:scale-[0.98] transition-all">查看详情</button>
+        <button onclick="go('hall-detail',{id:'${s.id}'})" class="py-2 rounded-lg text-[12px] font-medium ${joined?'bg-zinc-100 text-zinc-400 cursor-default':'bg-ink-900 text-white hover:bg-ink-800'} active:scale-[0.98] transition-all">${joined?'已报名':'立即报名'}</button>
+      </div>
+    </article>`;
+  }).join('');
+
+  return `
+  ${pageHead('任务大厅', '浏览社团开放的子任务，选择你感兴趣的方向报名参与。',
+    `${searchBox('搜索子任务 / 所属任务','w-64')}`)}
+
+  <div class="flex items-center gap-2 mb-6">
+    ${tabs.map(t=>`<button onclick="setFilter('${t}')" class="px-4 py-2 rounded-xl text-[13px] font-medium transition-all ${filter===t?'bg-ink-900 text-white shadow-soft':'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50'}">${t}${t==='全部'?' <span class="opacity-60">'+DB.subtasks.length+'</span>':''}</button>`).join('')}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${cards || emptyState('暂无符合条件的任务','换个筛选条件试试')}</div>`;
+}
+
+/* =========================================================
+   页面 · 子任务详情 / 报名（成员）
+   ========================================================= */
+function pageHallDetail(){
+  const s = DB.subtasks.find(x=>x.id===state.params.id) || DB.subtasks[0];
+  const approved = s.signups.filter(x=>x.status==='已同意').length;
+  const remain = Math.max(0, s.quota-approved);
+  const joined = s.signups.some(x=>x.mid==='m3');
+
+  return `
+  <div class="flex items-center gap-2 text-sm text-zinc-500 mb-5">
+    <button onclick="go('hall')" class="inline-flex items-center gap-1.5 hover:text-ink-900 transition-colors">${icon('arrowLeft','w-4 h-4')}返回任务大厅</button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 左：任务信息 -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <h1 class="text-xl font-semibold text-zinc-900 tracking-tight">${s.name}</h1>
+            <p class="text-[12px] text-zinc-400 mt-1">所属大任务 · ${taskName(s.taskId)}</p>
+          </div>
+          ${statusBadge(s.status)}
+        </div>
+        <p class="text-sm text-zinc-600 mt-3 mb-5 leading-relaxed">${s.desc}</p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">归属部门</p><p class="text-sm font-medium text-zinc-800 mt-1">${s.dept}</p></div>
+          <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">剩余名额</p><p class="text-sm font-medium text-zinc-800 mt-1">${remain} / ${s.quota}</p></div>
+          <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">报名人数</p><p class="text-sm font-medium text-zinc-800 mt-1">${s.signups.length} 人</p></div>
+          <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">当前阶段</p><p class="text-sm font-medium text-zinc-800 mt-1">${(s.stages.find(x=>x.state==='active')||s.stages[s.stages.length-1]).name}</p></div>
+        </div>
+
+        <p class="text-[11px] text-zinc-400 mb-2">阶段进度</p>
+        ${stepBar(s.stages)}
+
+        <p class="text-[11px] text-zinc-400 mt-5 mb-2">可调用资源</p>
+        <div class="flex flex-wrap gap-2">
+          ${s.resources.map(r=>`<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-[12px] text-zinc-600">${icon('file','w-3.5 h-3.5 text-zinc-400')}${r}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 公告 -->
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-4">子任务公告</h2>
+        <div class="space-y-3">
+          ${s.notices.map(n=>`
+            <div class="flex items-start gap-3 p-3 rounded-xl bg-zinc-50/70">
+              <div class="w-7 h-7 rounded-lg bg-white border border-zinc-200 text-zinc-400 flex items-center justify-center shrink-0">${icon('megaphone','w-3.5 h-3.5')}</div>
+              <p class="text-[13px] text-zinc-600">${n}</p>
+            </div>`).join('') || emptyState('暂无公告','')}
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：报名 -->
+    <div class="space-y-6">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-4">${joined?'我的报名':'立即报名'}</h2>
+        ${joined ? `
+          <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 mb-4">
+            <p class="text-[13px] font-medium text-emerald-700">已提交报名</p>
+            <p class="text-[11px] text-emerald-600 mt-1">等待部长审核，可在「我的任务」查看进度</p>
+          </div>
+          <button onclick="openUploadModal('${s.name}')" class="w-full py-2.5 rounded-xl bg-ink-900 hover:bg-ink-800 active:scale-[0.99] text-white text-sm font-medium transition-all">上传产出</button>
+        ` : `
+          <form onsubmit="event.preventDefault(); toast('报名已提交，等待部长审核'); go('my-tasks');">
+            <label class="block text-[12px] font-medium text-zinc-700 mb-1.5">选择分工</label>
+            <div class="relative mb-4">
+              <select class="w-full appearance-none pl-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 cursor-pointer">
+                <option>宣讲主持</option><option>物料对接</option><option>场地协调</option><option>数据整理</option>
+              </select>
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span>
+            </div>
+            <label class="block text-[12px] font-medium text-zinc-700 mb-1.5">上传产出（可选）</label>
+            <div onclick="toast('已选择文件')" class="border-2 border-dashed border-zinc-200 rounded-xl p-4 text-center hover:border-ink-900/40 hover:bg-zinc-50 transition-colors cursor-pointer mb-4">
+              <div class="text-zinc-300 flex justify-center mb-1">${icon('upload','w-6 h-6')}</div>
+              <p class="text-[11px] text-zinc-500">点击上传作品 / 简历</p>
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-ink-900 hover:bg-ink-800 active:scale-[0.99] text-white text-sm font-medium shadow-soft transition-all">提交报名</button>
+            <p class="text-[11px] text-zinc-400 text-center mt-3">提交后由部长审核，结果会通知你</p>
+          </form>
+        `}
+      </div>
+
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-6">
+        <h2 class="text-sm font-semibold text-zinc-900 mb-4">已报名成员</h2>
+        <div class="space-y-3">
+          ${s.signups.slice(0,5).map(x=>{const m=memberById(x.mid);return `
+            <div class="flex items-center gap-3">
+              ${avatarImg(m.avatar,'w-8 h-8')}
+              <div class="min-w-0 flex-1"><p class="text-[13px] font-medium text-zinc-800">${m.name}</p><p class="text-[11px] text-zinc-400">${x.div}</p></div>
+              ${statusBadge(x.status)}
+            </div>`}).join('') || emptyState('还没有人报名','成为第一个吧')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 我的任务（成员）
+   ========================================================= */
+function pageMyTasks(){
+  const mine = DB.subtasks.filter(s=>s.signups.some(x=>x.mid==='m3'));
+  const cards = mine.map(s=>{
+    const me = s.signups.find(x=>x.mid==='m3');
+    return `<div class="bg-white rounded-2xl border border-zinc-200 shadow-soft hover:shadow-lift transition-all p-5">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <h3 class="font-semibold text-zinc-900">${s.name}</h3>
+          <p class="text-[11px] text-zinc-400 mt-0.5">${taskName(s.taskId)}</p>
+        </div>
+        ${statusBadge(me.status)}
+      </div>
+      <div class="flex items-center gap-2 my-3">
+        <span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[11px]">分工 · ${me.div}</span>
+        <span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[11px]">${s.dept}</span>
+      </div>
+      <div class="mb-4">${stepBar(s.stages)}</div>
+      <div class="flex gap-2">
+        <button onclick="go('hall-detail',{id:'${s.id}'})" class="flex-1 py-2 rounded-lg text-[12px] font-medium border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">查看详情</button>
+        <button onclick="openUploadModal('${s.name}')" class="flex-1 py-2 rounded-lg text-[12px] font-medium bg-ink-900 text-white hover:bg-ink-800 transition-all">上传产出</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  ${pageHead('我的任务', '你已报名或参与的子任务，可上传产出并查看审核进度。', '')}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">${cards || emptyState('还没有参与任务','去任务大厅看看')}</div>`;
+}
+
+/* =========================================================
+   页面 · 我的产出（成员）
+   ========================================================= */
+function pageMyOutputs(){
+  const mine = DB.outputs.filter(o=>o.member==='王悦');
+  const rows = mine.map(o=>`
+    <tr class="hover:bg-zinc-50/60 transition-colors">
+      <td class="px-5 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-zinc-100 text-zinc-500 flex items-center justify-center">${icon('file','w-4 h-4')}</div>
+          <div><p class="font-medium text-zinc-900">${o.name}</p><p class="text-[11px] text-zinc-400">${o.file}</p></div>
+        </div>
+      </td>
+      <td class="px-5 py-4 text-zinc-500">${o.task}</td>
+      <td class="px-5 py-4 text-zinc-500">${o.sub}</td>
+      <td class="px-5 py-4 text-zinc-500 tabular-nums">${o.date}</td>
+      <td class="px-5 py-4">${statusBadge(o.status)}</td>
+      <td class="px-5 py-4 text-right"><button onclick="openUploadModal('${o.sub}')" class="text-[12px] font-medium text-ink-900 hover:text-blue-600 transition-colors">重新提交</button></td>
+    </tr>`).join('');
+
+  return `
+  ${pageHead('我的产出', '查看你提交的产出物与审核结果。',
+    `${primaryBtn('上传新产出','openUploadModal()','upload')}`)}
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+          <th class="px-5 py-3 font-medium">产出物</th>
+          <th class="px-5 py-3 font-medium">所属任务</th>
+          <th class="px-5 py-3 font-medium">子任务</th>
+          <th class="px-5 py-3 font-medium">提交时间</th>
+          <th class="px-5 py-3 font-medium">状态</th>
+          <th class="px-5 py-3 font-medium text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-zinc-100">${rows || `<tr><td colspan="6">${emptyState('还没有产出','点击右上角上传')}</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   页面 · 沟通中心
+   ========================================================= */
+function pageMessages(){
+  const threads = DB.threads.filter(t=>t.role===state.role);
+  const active = threads.find(t=>t.id===state.params.thread) || threads[0];
+
+  const listHtml = threads.map(t=>{
+    const last = t.msgs[t.msgs.length-1];
+    const on = t.id===active.id;
+    return `<button onclick="openThread('${t.id}')" class="w-full text-left px-4 py-3.5 border-b border-zinc-100 transition-colors ${on?'bg-zinc-50':'hover:bg-zinc-50/60'}">
+      <div class="flex items-center gap-3">
+        ${avatarImg(t.avatar,'w-9 h-9')}
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-[13px] font-medium text-zinc-900 truncate">${t.name}</p>
+            <span class="text-[10px] text-zinc-400 shrink-0">${last.time}</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 truncate mt-0.5">${last.from==='me'?'我：':''}${last.text}</p>
+        </div>
+      </div>
+    </button>`;
+  }).join('');
+
+  const msgsHtml = active.msgs.map(m=>{
+    const me = m.from==='me';
+    return `<div class="flex ${me?'justify-end':'justify-start'}">
+      <div class="max-w-[75%]">
+        <div class="px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed ${me?'bg-ink-900 text-white rounded-br-md':'bg-zinc-100 text-zinc-700 rounded-bl-md'}">${m.text}</div>
+        <p class="text-[10px] text-zinc-400 mt-1 ${me?'text-right':''}">${m.time}</p>
+      </div>
+    </div>`;
+  }).join('');
+
+  const roleHint = { president:'可与部长、成员单独沟通', minister:'可与主席团、成员单独沟通', member:'可与部长、主席团单独沟通' }[state.role];
+
+  return `
+  ${pageHead('沟通中心', roleHint, '')}
+  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden" style="height:calc(100vh - 220px);min-height:520px">
+    <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] h-full">
+      <div class="border-r border-zinc-100 flex flex-col min-h-0">
+        <div class="px-4 py-3.5 border-b border-zinc-100">
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">${icon('search','w-3.5 h-3.5')}</span>
+            <input type="text" placeholder="搜索联系人" class="w-full pl-8 pr-3 py-2 text-[12px] rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto min-h-0">${listHtml}</div>
+      </div>
+
+      <div class="flex flex-col min-h-0">
+        <div class="h-14 px-5 flex items-center justify-between border-b border-zinc-100 shrink-0">
+          <div class="flex items-center gap-3">
+            ${avatarImg(active.avatar,'w-8 h-8')}
+            <div>
+              <p class="text-[13px] font-medium text-zinc-900">${active.name}</p>
+              <p class="text-[11px] text-zinc-400">${active.sub}</p>
+            </div>
+          </div>
+          ${badge('在线','green')}
+        </div>
+        <div id="chatBody" class="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/40 min-h-0">${msgsHtml}</div>
+        <div class="p-4 border-t border-zinc-100 shrink-0">
+          <form onsubmit="event.preventDefault(); sendMsg('${active.id}')" class="flex items-center gap-2">
+            <input id="chatInput" type="text" placeholder="输入消息，回车发送…" class="flex-1 px-4 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+            <button type="submit" class="w-10 h-10 rounded-xl bg-ink-900 hover:bg-ink-800 active:scale-95 text-white flex items-center justify-center transition-all">${icon('send','w-4 h-4')}</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   交互动作
+   ========================================================= */
+function openThread(id){ state.params = { thread:id }; renderMain(); }
+
+function sendMsg(threadId){
+  const input = document.getElementById('chatInput');
+  const text = (input.value||'').trim();
+  if(!text) return;
+  const th = DB.threads.find(t=>t.id===threadId);
+  if(th){
+    th.msgs.push({ from:'me', text, time:'刚刚' });
+  }
+  renderMain();
+}
+
+function setFilter(t){ state.filter = t; renderMain(); }
+
+function openTaskModal(){
+  openModal({
+    title:'新建任务',
+    w:'max-w-lg',
+    body:`
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">任务名称</label>
+          <input type="text" placeholder="例如：迎新晚会统筹" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">任务简介</label>
+          <textarea rows="3" placeholder="简要描述任务目标与范围…" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">可调用资源</label>
+          <div class="border-2 border-dashed border-zinc-200 rounded-xl p-5 text-center hover:border-ink-900/40 hover:bg-zinc-50 transition-colors cursor-pointer">
+            <div class="text-zinc-300 flex justify-center mb-1.5">${icon('upload','w-7 h-7')}</div>
+            <p class="text-[13px] text-zinc-500">点击或拖拽文件到此处上传</p>
+            <p class="text-[11px] text-zinc-400 mt-0.5">支持 PDF / Word / 图片，单个 ≤20MB</p>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-sm font-medium text-zinc-700">进度阶段设置</label>
+            <button type="button" onclick="addStage()" class="inline-flex items-center gap-1 text-sm font-medium text-ink-900 hover:text-blue-600 transition-colors">${icon('plus','w-4 h-4')}添加阶段</button>
+          </div>
+          <div id="stageList" class="space-y-2.5">
+            ${stageRow(1,'策划')}${stageRow(2,'执行')}${stageRow(3,'验收')}
+          </div>
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('任务已创建')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">创建任务</button>`
+  });
+}
+function stageRow(idx,name){
+  return `<div class="stage-row flex items-center gap-2">
+    <span class="w-6 text-center text-xs font-medium text-zinc-400">${idx}</span>
+    <input type="text" value="${name}" placeholder="阶段名称" class="flex-1 px-3 py-2 text-sm rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+    <button type="button" onclick="removeStage(this)" class="w-8 h-8 shrink-0 rounded-lg hover:bg-red-50 text-zinc-300 hover:text-red-500 transition-colors flex items-center justify-center">${icon('trash','w-4 h-4')}</button>
+  </div>`;
+}
+function addStage(){
+  const list = document.getElementById('stageList');
+  if(!list) return;
+  const idx = list.children.length + 1;
+  const div = document.createElement('div');
+  div.innerHTML = stageRow(idx,'');
+  list.appendChild(div.firstElementChild);
+}
+function removeStage(btn){
+  const list = document.getElementById('stageList');
+  if(!list || list.children.length<=1) return;
+  btn.closest('.stage-row').remove();
+  [...list.children].forEach((r,i)=>{ const s=r.querySelector('span'); if(s) s.textContent=i+1; });
+}
+
+function openSubtaskModal(taskId){
+  openModal({
+    title:'创建子任务',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">子任务名称</label>
+          <input type="text" placeholder="例如：外联宣讲" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">所属大任务</label>
+          <div class="relative">
+            <select class="w-full appearance-none px-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900">
+              ${DB.tasks.map(t=>`<option ${t.id===taskId?'selected':''}>${t.name}</option>`).join('')}
+            </select>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">简介</label>
+          <textarea rows="3" placeholder="子任务目标与内容…" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-zinc-700 mb-1.5">名额</label>
+            <input type="number" value="8" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-zinc-700 mb-1.5">开启报名</label>
+            <div class="flex items-center gap-2 h-[42px]">
+              <div class="w-10 h-6 rounded-full bg-ink-900 relative"><span class="absolute right-0.5 top-0.5 w-5 h-5 rounded-full bg-white"></span></div>
+              <span class="text-[12px] text-zinc-500">立即开放</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">可调用资源</label>
+          <div class="border-2 border-dashed border-zinc-200 rounded-xl p-4 text-center hover:border-ink-900/40 hover:bg-zinc-50 transition-colors cursor-pointer">
+            <p class="text-[12px] text-zinc-500">点击上传参考文件</p>
+          </div>
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('子任务已创建')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">创建</button>`
+  });
+}
+
+function openAnnouncementModal(){
+  openModal({
+    title:'发布公告',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">标题</label>
+          <input type="text" placeholder="公告标题" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">类型</label>
+          <div class="flex gap-2">
+            ${['公告','通知','招募'].map((t,i)=>`<button type="button" class="px-3 py-1.5 rounded-lg text-[12px] border transition-all ${i===0?'border-ink-900 bg-ink-900 text-white':'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}">${t}</button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">正文</label>
+          <textarea rows="5" placeholder="公告内容…" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('公告已发布')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">发布</button>`
+  });
+}
+
+function openNoticeModal(subId){
+  openModal({
+    title:'发布子任务公告',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">提醒内容</label>
+          <textarea rows="4" placeholder="例如：10月22日 18:30 于 A302 集合开会" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+        <p class="text-[11px] text-zinc-400">发布后将推送到该子任务下所有成员</p>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('公告已推送给成员')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">发布</button>`
+  });
+}
+
+function openUploadModal(subName){
+  openModal({
+    title:'上传产出',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">产出名称</label>
+          <input type="text" placeholder="例如：招新宣传海报初稿" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">所属子任务</label>
+          <input type="text" value="${subName||''}" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-600 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">文件</label>
+          <div class="border-2 border-dashed border-zinc-200 rounded-xl p-6 text-center hover:border-ink-900/40 hover:bg-zinc-50 transition-colors cursor-pointer">
+            <div class="text-zinc-300 flex justify-center mb-2">${icon('upload','w-7 h-7')}</div>
+            <p class="text-[13px] text-zinc-500">点击或拖拽文件到此处</p>
+            <p class="text-[11px] text-zinc-400 mt-0.5">PDF / Word / 图片 / 压缩包，≤20MB</p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">备注</label>
+          <textarea rows="2" placeholder="补充说明（可选）" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('产出已提交，等待审核')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">提交</button>`
+  });
+}
+
+function openDeptAssign(taskId, dept){
+  const t = DB.tasks.find(x=>x.id===taskId) || DB.tasks[0];
+  openModal({
+    title:'部门级分工设置',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">任务</label>
+          <input type="text" value="${t.name}" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-600" readonly />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">部门</label>
+          <div class="relative">
+            <select class="w-full appearance-none px-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900">
+              ${['外联部','宣传部','组织部','文艺部','财务部'].map(d=>`<option ${d===dept?'selected':''}>${d}</option>`).join('')}
+            </select>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">负责部长</label>
+          <div class="relative">
+            <select class="w-full appearance-none px-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900">
+              ${DB.members.filter(m=>m.post==='部长').map(m=>`<option>${m.name} · ${m.dept}</option>`).join('')}
+            </select>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">部门任务范围</label>
+          <textarea rows="3" placeholder="该部门在此任务中负责的内容…" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 resize-none"></textarea>
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('分工设置已保存')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">保存</button>`
+  });
+}
+
+function openAddMemberModal(subId){
+  openModal({
+    title:'移入成员',
+    body:`
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-zinc-700 mb-1.5">搜索成员</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">${icon('search','w-4 h-4')}</span>
+            <input type="text" placeholder="姓名 / 学号" class="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
+          </div>
+        </div>
+        <div class="space-y-2 max-h-56 overflow-y-auto">
+          ${DB.members.slice(2,8).map(m=>`
+            <label class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-zinc-50 cursor-pointer transition-colors">
+              <input type="checkbox" class="w-4 h-4 rounded border-zinc-300 text-ink-900 focus:ring-ink-900" />
+              ${avatarImg(m.avatar,'w-8 h-8')}
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium text-zinc-800">${m.name}</p>
+                <p class="text-[11px] text-zinc-400">${m.sid} · ${m.dept}</p>
+              </div>
+            </label>`).join('')}
+        </div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('已移入所选成员')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">确认移入</button>`
+  });
+}
+
+function viewMember(id){
+  const m = DB.members.find(x=>x.id===id);
+  openModal({
+    title:'成员详情',
+    body:`
+      <div class="flex items-center gap-4 mb-5">
+        ${avatarImg(m.avatar,'w-14 h-14')}
+        <div>
+          <p class="text-lg font-semibold text-zinc-900">${m.name}</p>
+          <p class="text-[12px] text-zinc-400 mt-0.5">${m.dept} · ${m.post}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">学号</p><p class="text-sm text-zinc-800 mt-1">${m.sid}</p></div>
+        <div class="p-3 rounded-xl bg-zinc-50"><p class="text-[11px] text-zinc-400">产出数</p><p class="text-sm text-zinc-800 mt-1">${m.out} 份</p></div>
+      </div>
+      <p class="text-[11px] text-zinc-400 mt-4 mb-2">参与的项目</p>
+      <div class="flex flex-wrap gap-2">${m.projects.map(p=>`<span class="px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-[12px]">${p}</span>`).join('')}</div>`,
+    footer:`<button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">关闭</button>`
+  });
+}
+
+function editMember(id){
+  const m = DB.members.find(x=>x.id===id);
+  openModal({
+    title:'编辑成员信息',
+    body:`
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-sm font-medium text-zinc-700 mb-1.5">姓名</label>
+            <input type="text" value="${m.name}" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" /></div>
+          <div><label class="block text-sm font-medium text-zinc-700 mb-1.5">学号</label>
+            <input type="text" value="${m.sid}" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-sm font-medium text-zinc-700 mb-1.5">部门</label>
+            <div class="relative"><select class="w-full appearance-none px-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900">
+              ${['主席团','外联部','宣传部','组织部','文艺部','财务部'].map(d=>`<option ${d===m.dept?'selected':''}>${d}</option>`).join('')}
+            </select><span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span></div></div>
+          <div><label class="block text-sm font-medium text-zinc-700 mb-1.5">职务</label>
+            <div class="relative"><select class="w-full appearance-none px-3.5 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900">
+              ${['社长','部长','干事'].map(d=>`<option ${d===m.post?'selected':''}>${d}</option>`).join('')}
+            </select><span class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">${icon('chevDown','w-4 h-4')}</span></div></div>
+        </div>
+        <div><label class="block text-sm font-medium text-zinc-700 mb-1.5">参与的项目（逗号分隔）</label>
+          <input type="text" value="${m.projects.join('，')}" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" /></div>
+      </div>`,
+    footer:`
+      <button onclick="closeModal()" class="px-4 py-2.5 text-sm font-medium text-zinc-600 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all">取消</button>
+      <button onclick="closeModal(); toast('成员信息已更新')" class="px-4 py-2.5 text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 rounded-xl shadow-soft transition-all">保存</button>`
+  });
+}
+
+function agreeSignup(subId, mid){
+  const s = DB.subtasks.find(x=>x.id===subId);
+  const x = s.signups.find(g=>g.mid===mid);
+  if(x){ x.status='已同意'; toast('已同意该报名'); }
+  renderMain();
+}
+function rejectSignup(subId, mid){
+  const s = DB.subtasks.find(x=>x.id===subId);
+  const x = s.signups.find(g=>g.mid===mid);
+  if(x){ x.status='已拒绝'; toast('已拒绝该报名'); }
+  renderMain();
+}
+function removeSignup(subId, mid){
+  const s = DB.subtasks.find(x=>x.id===subId);
+  s.signups = s.signups.filter(g=>g.mid!==mid);
+  toast('已移出该成员');
+  renderMain();
+}
+function assignDiv(subId, mid, val){
+  const s = DB.subtasks.find(x=>x.id===subId);
+  const x = s.signups.find(g=>g.mid===mid);
+  if(x) x.div = val;
+  toast('分工已更新为「'+val+'」');
+}
+function confirmOutput(id, approve){
+  const o = DB.outputs.find(x=>x.id===id);
+  if(o){ o.status = approve?'已通过':'已驳回'; toast(approve?'产出已确认通过':'产出已驳回'); }
+  renderMain();
+}
+function setTaskStage(taskId, idx){
+  const t = DB.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  t.cur = idx + 1;
+  t.stages = t.stages.map((s,i)=>({ ...s, state: i<idx ? 'done' : (i===idx?'active':'todo') }));
+  toast('已设置当前阶段为「'+t.stages[idx].name+'」');
+  renderMain();
+}
+function setSubStage(subId, idx){
+  const s = DB.subtasks.find(x=>x.id===subId);
+  if(!s) return;
+  s.stages = s.stages.map((st,i)=>({ ...st, state: i<idx ? 'done' : (i===idx?'active':'todo') }));
+  toast('已设置当前阶段为「'+s.stages[idx].name+'」');
+  renderMain();
+}
+
+/* =========================================================
+   工具
+   ========================================================= */
+function memberById(id){ return DB.members.find(m=>m.id===id) || DB.members[0]; }
+function taskName(id){ const t = DB.tasks.find(x=>x.id===id); return t?t.name:'—'; }
+
+/* =========================================================
+   初始化
+   ========================================================= */
+(function init(){
+  document.getElementById('lf1').innerHTML = icon('user','w-4 h-4');
+  document.getElementById('lf2').innerHTML = icon('chart','w-4 h-4');
+  document.getElementById('lf3').innerHTML = icon('check','w-4 h-4');
+  document.getElementById('li1').innerHTML = icon('users','w-4 h-4');
+  document.getElementById('li2').innerHTML = icon('layers','w-4 h-4');
+  document.getElementById('li3').innerHTML = icon('sparkle','w-4 h-4');
+})();
+</script>
+</body>
+</html>

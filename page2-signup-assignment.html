@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社团任务管理系统 · 报名与分工</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          /* ===== 深色主题色板 ===== */
+          colors: {
+            zinc: {
+              50:'#0b0b0e', 100:'#1c1c23', 200:'#262630', 300:'#33333f',
+              400:'#7e7e8c', 500:'#9494a2', 600:'#adadb9', 700:'#c6c6d1',
+              800:'#dcdce4', 900:'#f1f1f5', 950:'#ffffff'
+            },
+            ink: { 950: '#000000', 900: '#f4f4f7', 800: '#d2d2dc' },
+            emerald: { 50:'rgba(52,211,153,.12)', 100:'rgba(52,211,153,.26)', 600:'#10b981' },
+            amber:   { 50:'rgba(251,191,36,.13)', 100:'rgba(251,191,36,.26)' },
+            blue:    { 50:'rgba(96,165,250,.13)', 100:'rgba(96,165,250,.26)' },
+            red:     { 50:'rgba(248,113,113,.13)', 100:'rgba(248,113,113,.26)', 300:'rgba(248,113,113,.42)', 500:'#f87171' }
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(0,0,0,.55), 0 4px 18px rgba(0,0,0,.30)',
+            lift: '0 12px 40px rgba(0,0,0,.55)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-thumb{background:#33333d;border-radius:99px}
+
+
+    /* ========== 玻璃拟态 + 光晕交互（深色高级主题） ========== */
+    :root{
+      --g-panel:rgba(30,30,38,.52);
+      --g-rail:rgba(8,8,11,.66);
+      --g-line:rgba(255,255,255,.085);
+      --g-line-hi:rgba(255,255,255,.22);
+      --accent:#8ab4ff;
+      --txt-hi:#f2f2f6;
+      --txt-low:#74747f;
+    }
+    body{
+      background-color:#08080b !important;
+      background-image:
+        radial-gradient(1100px 720px at 10% -12%, rgba(138,180,255,.15), transparent 62%),
+        radial-gradient(900px 620px at 95% 2%,   rgba(196,181,253,.12), transparent 60%),
+        radial-gradient(1000px 780px at 55% 112%, rgba(127,231,240,.085), transparent 62%);
+      background-attachment:fixed;
+    }
+    body>*{position:relative;z-index:1}
+
+    /* 玻璃面板 */
+    .bg-white{
+      background-color:var(--g-panel) !important;
+      background-image:linear-gradient(168deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,.012) 42%,rgba(255,255,255,0) 100%) !important;
+      -webkit-backdrop-filter:blur(18px) saturate(155%) !important;
+      backdrop-filter:blur(18px) saturate(155%) !important;
+      border-color:var(--g-line) !important;
+      box-shadow:0 1px 0 rgba(255,255,255,.07) inset, 0 2px 8px rgba(0,0,0,.26), 0 14px 40px -18px rgba(0,0,0,.70) !important;
+    }
+    .bg-white\/80{
+      background-color:rgba(24,24,31,.58) !important;
+      -webkit-backdrop-filter:blur(20px) saturate(150%) !important;
+      backdrop-filter:blur(20px) saturate(150%) !important;
+      border-color:var(--g-line) !important;
+    }
+    .border-zinc-100,.border-zinc-200,.border-zinc-300{border-color:var(--g-line) !important}
+    .bg-white.text-ink-950{
+      background:#ffffff !important;background-image:none !important;
+      -webkit-backdrop-filter:none !important;backdrop-filter:none !important;color:#000 !important;
+    }
+    .bg-ink-950{
+      background-color:var(--g-rail) !important;
+      -webkit-backdrop-filter:blur(24px) saturate(140%) !important;
+      backdrop-filter:blur(24px) saturate(140%) !important;
+    }
+    .bg-zinc-100{background-color:rgba(255,255,255,.062) !important;border-color:var(--g-line) !important}
+
+    /* 按钮过渡 */
+    button,a,summary,[role="button"]{
+      transition:box-shadow .26s cubic-bezier(.22,1,.36,1), background-color .2s ease,
+                 border-color .2s ease, color .2s ease, filter .2s ease, transform .16s ease;
+    }
+
+    /* 主 CTA：亮面 + 冷白光晕 */
+    .bg-ink-900.text-white{
+      background:linear-gradient(180deg,#ffffff 0%,#e9e9f1 100%) !important;
+      color:#08080b !important;border-color:transparent !important;
+      box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 4px 14px -4px rgba(255,255,255,.22), 0 2px 6px rgba(0,0,0,.45) !important;
+    }
+    .bg-ink-900.text-white:hover{
+      background:linear-gradient(180deg,#ffffff 0%,#f6f6fb 100%) !important;
+      box-shadow:0 0 0 1px rgba(255,255,255,.55),
+                 0 10px 30px -8px rgba(255,255,255,.40),
+                 0 0 26px -4px rgba(170,200,255,.42),
+                 0 3px 10px rgba(0,0,0,.50) !important;
+      transform:translateY(-1px);
+    }
+    .bg-ink-900.text-white:active{transform:translateY(0) scale(.985)}
+
+    /* 中性按钮 hover 转亮 + 微光（不再变灰） */
+    .hover\:bg-zinc-50:hover,.hover\:bg-zinc-50\/60:hover,
+    .hover\:bg-zinc-100:hover,.hover\:bg-white\/5:hover,.hover\:bg-ink-950:hover{
+      background-color:rgba(255,255,255,.075) !important;
+      box-shadow:0 0 0 1px rgba(255,255,255,.14),
+                 0 8px 24px -8px rgba(255,255,255,.16),
+                 0 2px 8px rgba(0,0,0,.32) !important;
+    }
+    button[class*="hover:bg-zinc-"]:hover,a[class*="hover:bg-zinc-"]:hover{color:var(--txt-hi) !important}
+    .hover\:border-zinc-200:hover,.hover\:border-zinc-300:hover,
+    .hover\:border-ink-900\/40:hover{border-color:var(--g-line-hi) !important}
+    .hover\:border-ink-900:hover{border-color:rgba(255,255,255,.45) !important}
+
+    /* 语义色按钮：同色系光晕 + 提亮 */
+    [class*="bg-emerald-600"]{
+      background:linear-gradient(180deg,#3ddc9c,#12b981) !important;
+      box-shadow:0 1px 0 rgba(255,255,255,.28) inset, 0 4px 12px -4px rgba(16,185,129,.42) !important;
+    }
+    [class*="bg-emerald-600"]:hover{
+      filter:brightness(1.13) saturate(1.16);
+      box-shadow:0 0 0 1px rgba(52,211,153,.55),
+                 0 10px 28px -8px rgba(52,211,153,.55),
+                 0 0 20px -4px rgba(52,211,153,.32) !important;
+      transform:translateY(-1px);
+    }
+    [class*="border-red-200"],[class*="border-red-300"]{border-color:rgba(248,113,113,.38) !important}
+    [class*="hover:bg-red-50"]:hover{
+      background-color:rgba(248,113,113,.14) !important;
+      box-shadow:0 0 0 1px rgba(248,113,113,.42), 0 10px 26px -8px rgba(248,113,113,.40) !important;
+    }
+
+    /* 兜底微光 */
+    button:hover,a[class*="inline-flex"]:hover{
+      box-shadow:0 0 0 1px rgba(255,255,255,.12),
+                 0 8px 22px -10px rgba(255,255,255,.20),
+                 0 2px 8px rgba(0,0,0,.30);
+    }
+
+    /* 聚焦环 */
+    [class*="focus:ring-ink-900"]:focus{
+      box-shadow:0 0 0 3px rgba(138,180,255,.32), 0 0 18px -2px rgba(138,180,255,.35) !important;
+      border-color:rgba(138,180,255,.55) !important;
+    }
+    input:focus,textarea:focus,select:focus{
+      outline:none;border-color:rgba(138,180,255,.55) !important;
+      box-shadow:0 0 0 3px rgba(138,180,255,.20), 0 0 20px -6px rgba(138,180,255,.45) !important;
+      background-color:rgba(255,255,255,.055) !important;
+    }
+
+    /* 语义色文字 */
+    .text-amber-600,.text-amber-700{color:#fbbf24 !important}
+    .text-emerald-600,.text-emerald-700{color:#34d399 !important}
+    .text-blue-600{color:var(--accent) !important}
+    .hover\:text-blue-600:hover{color:#a8ccff !important}
+    .text-red-500{color:#f87171 !important}
+    .hover\:text-red-500:hover{color:#fb8a8a !important}
+    .text-zinc-200,.text-zinc-300{color:var(--txt-low) !important}
+    .hover\:text-zinc-700:hover,.hover\:text-zinc-900:hover{color:var(--txt-hi) !important}
+    .group:hover .group-hover\:text-white{color:#fff !important}
+
+    /* 卡片悬停：抬升 + 冷高光描边 */
+    .hover\:shadow-lift:hover{
+      box-shadow:0 1px 0 rgba(255,255,255,.10) inset,
+                 0 0 0 1px rgba(255,255,255,.13),
+                 0 22px 60px -18px rgba(0,0,0,.85),
+                 0 0 34px -14px rgba(138,180,255,.30) !important;
+      border-color:var(--g-line-hi) !important;
+    }
+    .hover\:shadow-soft:hover{
+      box-shadow:0 0 0 1px rgba(255,255,255,.12),
+                 0 14px 34px -14px rgba(0,0,0,.70),
+                 0 0 22px -10px rgba(138,180,255,.24) !important;
+      border-color:var(--g-line-hi) !important;
+    }
+    .bg-zinc-100[class*="rounded-full"],.bg-zinc-200[class*="rounded-full"]{
+      background-color:rgba(255,255,255,.085) !important;border-color:transparent !important;
+    }
+    .h-px.bg-zinc-200,.h-px.bg-zinc-100{background-color:rgba(255,255,255,.13) !important}
+    [class*="bg-black"]{
+      background-color:rgba(4,4,7,.62) !important;
+      -webkit-backdrop-filter:blur(6px) !important;backdrop-filter:blur(6px) !important;
+    }
+
+    ::placeholder{color:#6a6a76 !important;opacity:1}
+    input,textarea,select{color-scheme:dark;background-color:rgba(255,255,255,.045) !important;border-color:var(--g-line) !important}
+    ::selection{background:rgba(138,180,255,.32);color:#fff}
+  
+  
+  /* 首屏逐块浮现（与整合版同一套缓动语言） */
+  .stg{animation:stgIn .55s cubic-bezier(.22,1,.36,1) both}
+  @keyframes stgIn{from{opacity:0;translate:0 22px}to{opacity:1;translate:0 0}}
+  .nav-active-in{animation:navIn .32s cubic-bezier(.22,1,.36,1) both}
+  @keyframes navIn{from{opacity:0;transform:scale(.965)}to{opacity:1;transform:none}}
+  .modal-in{animation:modalIn .36s cubic-bezier(.22,1,.36,1) both}
+  @keyframes modalIn{
+    from{opacity:0;transform:translate3d(0,16px,0) scale(.962);filter:blur(7px)}
+    58%{filter:blur(0)}
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  .modal-out{animation:modalOut .18s cubic-bezier(.4,0,1,1) both}
+  @keyframes modalOut{to{opacity:0;transform:translate3d(0,8px,0) scale(.978);filter:blur(3px)}}
+  @media (prefers-reduced-motion: reduce){
+    .stg,.nav-active-in,.modal-in,.modal-out{animation:none !important}
+  }
+</style>
+</head>
+<body class="bg-zinc-50 text-zinc-800 antialiased">
+
+  <div class="flex min-h-screen">
+
+    <!-- ============ 侧边栏 ============ -->
+    <aside class="w-64 shrink-0 bg-ink-950 text-zinc-400 flex flex-col fixed inset-y-0 left-0 z-30">
+      <div class="h-16 flex items-center gap-3 px-6 border-b border-white/5">
+        <div class="w-9 h-9 rounded-xl bg-white text-ink-950 flex items-center justify-center font-bold text-lg">社</div>
+        <div class="leading-tight">
+          <div class="text-white font-semibold text-sm">社团任务管理</div>
+          <div class="text-[11px] text-zinc-500">Club Task OS</div>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+        <p class="px-3 text-[11px] uppercase tracking-wider text-zinc-600 mb-2">主导航</p>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-white/5 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>仪表盘</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-white/5 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span>任务管理</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm bg-white text-ink-950 font-medium shadow-soft transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-3-3 3 3 0 003 3z"/></svg>
+          <span>报名分工</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-white/5 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h10M4 18h10"/></svg>
+          <span>任务大厅</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-white/5 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>
+          <span>成员管理</span>
+        </a>
+        <p class="px-3 text-[11px] uppercase tracking-wider text-zinc-600 mt-6 mb-2">系统</p>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-white/5 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>设置</span>
+        </a>
+      </nav>
+
+      <div class="p-3 border-t border-white/5">
+        <div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+          <img src="https://i.pravatar.cc/64?img=32" class="w-9 h-9 rounded-full" alt="avatar" />
+          <div class="leading-tight flex-1 min-w-0">
+            <div class="text-white text-sm truncate">外联部 · 陈昊</div>
+            <div class="text-[11px] text-zinc-500 truncate">minister@club.edu</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ 主区域 ============ -->
+    <div class="flex-1 ml-64 flex flex-col min-w-0">
+
+      <!-- Header -->
+      <header class="h-16 bg-white/80 backdrop-blur border-b border-zinc-200 flex items-center justify-between px-8 sticky top-0 z-20">
+        <nav class="flex items-center gap-2 text-sm text-zinc-500">
+          <span class="hover:text-zinc-900 cursor-pointer transition-colors">部长端</span>
+          <svg class="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          <span class="text-zinc-900 font-medium">报名与分工</span>
+        </nav>
+        <div class="flex items-center gap-4">
+          <button class="relative w-9 h-9 rounded-lg hover:bg-zinc-100 flex items-center justify-center text-zinc-500 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+          </button>
+          <div class="w-px h-6 bg-zinc-200"></div>
+          <div class="flex items-center gap-2.5 cursor-pointer">
+            <img src="https://i.pravatar.cc/64?img=32" class="w-9 h-9 rounded-full ring-2 ring-zinc-100" alt="avatar" />
+            <div class="leading-tight hidden sm:block">
+              <div class="text-sm font-medium text-zinc-900">陈昊</div>
+              <div class="text-[11px] text-zinc-400">外联部部长</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 内容区 -->
+      <main class="flex-1 p-8">
+        <div class="mb-7">
+          <h1 class="text-2xl font-semibold text-zinc-900 tracking-tight">报名与分工</h1>
+          <p class="text-sm text-zinc-500 mt-1">审核部门成员的报名申请，并配置子任务的分工安排。</p>
+        </div>
+
+        <!-- 子任务 + 分工设置 区域 -->
+        <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-ink-900 text-white flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z"/></svg>
+            </div>
+            <div>
+              <p class="text-[11px] text-zinc-400 uppercase tracking-wide">当前子任务</p>
+              <p class="text-base font-semibold text-zinc-900">社团招新计划 · 外联宣讲</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="text-sm text-zinc-500">分工设置</label>
+            <div class="relative">
+              <select class="appearance-none pl-4 pr-10 py-2.5 text-sm font-medium rounded-xl border border-zinc-200 bg-white text-zinc-800 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 transition-shadow cursor-pointer">
+                <option>按报名顺序自动分配</option>
+                <option>按部门平均分配</option>
+                <option>按擅长方向手动指定</option>
+                <option>自由认领</option>
+              </select>
+              <svg class="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+            <h2 class="text-sm font-semibold text-zinc-900">报名成员 <span class="text-zinc-400 font-normal">(8)</span></h2>
+            <div class="relative">
+              <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" placeholder="搜索成员 / 学号" class="w-56 pl-9 pr-3 py-2 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900 transition-shadow" />
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
+                  <th class="px-5 py-3 font-medium">成员姓名</th>
+                  <th class="px-5 py-3 font-medium">学号</th>
+                  <th class="px-5 py-3 font-medium">部门</th>
+                  <th class="px-5 py-3 font-medium">报名状态</th>
+                  <th class="px-5 py-3 font-medium text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100" id="memberTable">
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=5" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">王悦</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202310124</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">外联部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600">待审核</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=8" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">林楠</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202310208</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">宣传部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-600">已同意</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 opacity-40 cursor-not-allowed rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=15" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">赵晴</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202209117</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">文艺部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600">待审核</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=20" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">周野</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202310356</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">组织部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-50 text-rose-600">已拒绝</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 opacity-40 cursor-not-allowed rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=23" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">孙瑶</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202411002</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">外联部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600">待审核</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=27" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">黄睿</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202310541</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">财务部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-600">已同意</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 opacity-40 cursor-not-allowed rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=33" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">吴桐</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202411089</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">文艺部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-600">待审核</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 hover:bg-red-50 active:scale-[0.97] rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-zinc-50/60 transition-colors">
+                  <td class="px-5 py-3.5">
+                    <div class="flex items-center gap-3">
+                      <img src="https://i.pravatar.cc/48?img=41" class="w-8 h-8 rounded-full" alt="" />
+                      <span class="font-medium text-zinc-900">郑昊</span>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3.5 text-zinc-500">202209433</td>
+                  <td class="px-5 py-3.5"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">组织部</span></td>
+                  <td class="px-5 py-3.5"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-50 text-rose-600">已拒绝</span></td>
+                  <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] rounded-lg transition-all">同意</button>
+                    <button class="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium text-red-500 border border-red-300 opacity-40 cursor-not-allowed rounded-lg transition-all ml-1.5">不同意</button>
+                    <a href="#" class="text-[12px] text-zinc-400 hover:text-red-500 transition-colors ml-3">移出</a>
+                  </td>
+                </tr>
+
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 分页 -->
+          <div class="flex items-center justify-between px-5 py-4 border-t border-zinc-100">
+            <p class="text-[12px] text-zinc-400">共 8 条记录</p>
+            <div class="flex items-center gap-1">
+              <button class="w-8 h-8 rounded-lg text-zinc-400 hover:bg-zinc-100 transition-colors text-sm">‹</button>
+              <button class="w-8 h-8 rounded-lg bg-ink-900 text-white text-sm font-medium">1</button>
+              <button class="w-8 h-8 rounded-lg text-zinc-400 hover:bg-zinc-100 transition-colors text-sm">2</button>
+              <button class="w-8 h-8 rounded-lg text-zinc-400 hover:bg-zinc-100 transition-colors text-sm">›</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // 报名状态标签色映射（演示用，可按需扩展）
+    const statusStyle = {
+      '待审核': 'bg-amber-50 text-amber-600',
+      '已同意': 'bg-emerald-50 text-emerald-600',
+      '已拒绝': 'bg-rose-50 text-rose-600',
+    };
+    console.log('报名与分工页面已加载，状态色：', statusStyle);
+  </script>
+
+<script>
+/* 首屏逐块浮现 + 弹窗进出场（与整合版同一套缓动语言） */
+(function(){
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var main = document.querySelector('main');
+  if(main && !REDUCED){
+    var kids = [].slice.call(main.children);
+    var span = Math.min(kids.length, 9);
+    kids.forEach(function(el, i){
+      el.classList.add('stg');
+      el.style.animationDelay = (Math.min(i, span - 1) * 55) + 'ms';
+      el.addEventListener('animationend', function d(){
+        el.classList.remove('stg'); el.style.animationDelay = '';
+        el.removeEventListener('animationend', d);
+      });
+    });
+  }
+  function findModal(){
+    return document.getElementById('taskModal') ||
+           document.getElementById('modalRoot') ||
+           document.querySelector('[id*=odal]');
+  }
+  function findPanel(m){
+    return m.querySelector('.shadow-lift') || m.querySelector('.bg-white') || m.firstElementChild;
+  }
+  /* 打开：容器一显示就给面板加带景深的进场 */
+  function hookOpen(){
+    var m = findModal(); if(!m || m.__h) return;
+    var panel = findPanel(m); if(!panel) return;
+    m.__h = true;
+    var play = function(){
+      if(m.classList.contains('hidden') || m.hasAttribute('hidden')) return;
+      panel.classList.remove('modal-out'); void panel.offsetWidth; panel.classList.add('modal-in');
+    };
+    try{
+      new MutationObserver(play).observe(m, {attributes:true, attributeFilter:['class','style','hidden']});
+    }catch(e){}
+  }
+  /* 关闭：先退场，再真正隐藏 */
+  window.__closeModalSoft = function(){
+    var m = findModal();
+    if(!m || REDUCED){ if(window.closeModal) window.closeModal(); return; }
+    var panel = findPanel(m);
+    if(panel){ panel.classList.remove('modal-in'); panel.classList.add('modal-out'); }
+    setTimeout(function(){
+      if(window.closeModal) window.closeModal();
+      if(panel) panel.classList.remove('modal-out');
+    }, 180);
+  };
+  /* ESC 也走软关闭 */
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ var m = findModal(); if(m && !m.classList.contains('hidden')) window.__closeModalSoft(); }
+  });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hookOpen);
+  else hookOpen();
+})();
+</script>
+
+</body>
+</html>
