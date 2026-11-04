@@ -1,0 +1,23 @@
+.club-chat { height:calc(100vh - 210px); min-height:520px; display:grid; grid-template-columns:290px minmax(0,1fr); }
+.club-chat button:focus-visible, [data-club]:focus-visible { outline:2px solid #8ab4ff; outline-offset:2px; }
+button:disabled { opacity:.45; cursor:not-allowed; }
+#clubChatBody { overflow-wrap:anywhere; }
+#clubContactSearch button { flex-shrink:0; }
+@media(max-width:767px) {
+  #navIndicator { display:none; }
+  #appView>aside { width:72px; }
+  #appView>aside>div:first-child { padding:12px; }
+  #appView>aside>div:first-child>div:last-child, #nav p, #nav a>span, #sideFoot .leading-tight { display:none; }
+  #nav { padding:12px 8px; }
+  #nav a { justify-content:center; padding:12px; }
+  #sideFoot { padding:8px; }
+  #sideFoot>div { flex-wrap:wrap; justify-content:center; padding:0; }
+  #appView>div.ml-64 { margin-left:72px; }
+  #appView header { padding-left:16px; padding-right:16px; }
+  #main { padding:16px; }
+  .club-chat { height:auto; min-height:650px; grid-template-columns:minmax(0,1fr); grid-template-rows:220px 520px; }
+  .club-contacts { border-right:0; border-bottom:1px solid var(--g-line); }
+  .club-contacts>div:last-child { padding:8px; }
+  .club-contacts>div:last-child button { padding:4px 8px; font-size:11px; }
+}
+@media(prefers-reduced-motion:reduce) { .club-chat * { scroll-behavior:auto; } }

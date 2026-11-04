@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>未央社 · 社团任务管理系统</title>
+<link rel="stylesheet" href="styles/m7-m8.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 if (typeof tailwind !== 'undefined') {
@@ -402,7 +403,7 @@ if (typeof tailwind !== 'undefined') {
 
       <div class="flex items-center gap-3 my-6">
         <div class="flex-1 h-px bg-zinc-200"></div>
-        <span class="text-[11px] text-zinc-400">演示账号 · 一键进入</span>
+        <span class="text-[11px] text-zinc-400">其他模块界面演示（不连接后端）</span>
         <div class="flex-1 h-px bg-zinc-200"></div>
       </div>
 
@@ -424,7 +425,7 @@ if (typeof tailwind !== 'undefined') {
         </button>
       </div>
 
-      <p class="text-[11px] text-zinc-400 text-center mt-8 leading-relaxed">登录即代表同意《社团管理系统使用规范》</p>
+      <p class="text-[11px] text-zinc-400 text-center mt-8 leading-relaxed">真实登录后可使用资产管理与沟通中心</p>
     </div>
   </div>
 </div>
@@ -581,45 +582,7 @@ const DB = {
     {id:'a3',title:'关于社团经费报销规范的通知',content:'自本月起所有报销需附电子发票与活动说明，经财务部审核后方可提交。',date:'2026-10-08',author:'黄睿',type:'通知',pinned:false},
     {id:'a4',title:'校庆文艺汇演节目征集',content:'面向全校征集语言类、歌舞类节目，报名截止 11 月 8 日。',date:'2026-10-18',author:'赵晴',type:'招募',pinned:false}
   ],
-  assets:[
-    {id:'as1',name:'专业音响设备',qty:'2 套',status:'在用',keeper:'陈昊',dept:'外联部'},
-    {id:'as2',name:'折叠展架',qty:'10 个',status:'闲置',keeper:'林楠',dept:'宣传部'},
-    {id:'as3',name:'单反相机',qty:'1 台',status:'在用',keeper:'苏芮',dept:'宣传部'},
-    {id:'as4',name:'活动帐篷',qty:'4 顶',status:'在用',keeper:'周野',dept:'组织部'},
-    {id:'as5',name:'宣传物料库存',qty:'若干',status:'闲置',keeper:'林楠',dept:'宣传部'}
-  ],
-  threads:[
-    {id:'th1',role:'president',name:'陈昊',sub:'外联部部长',avatar:32,msgs:[
-      {from:'them',text:'社长，招新宣讲的场地已经确认在 A302 了。',time:'10:12'},
-      {from:'me',text:'好的，宣讲 PPT 需要在 10 月 25 日前定稿。',time:'10:15'},
-      {from:'them',text:'收到，我今天把初稿上传到产出管理。',time:'10:16'}
-    ]},
-    {id:'th2',role:'president',name:'林楠',sub:'宣传部部长',avatar:8,msgs:[
-      {from:'them',text:'海报初稿已经上传，麻烦您看下视觉方向。',time:'09:40'},
-      {from:'me',text:'整体不错，主标题可以再大一号。',time:'09:52'}
-    ]},
-    {id:'th3',role:'president',name:'王悦',sub:'外联部成员',avatar:5,msgs:[
-      {from:'them',text:'社长您好，我想申请参与外联宣讲可以吗？',time:'昨天'}
-    ]},
-    {id:'th4',role:'minister',name:'李思远',sub:'社长 · 主席团',avatar:12,msgs:[
-      {from:'them',text:'招新进展如何？本周需要看到宣讲排期。',time:'09:10'},
-      {from:'me',text:'已完成 3 个院系对接，排期表今天发您。',time:'09:20'}
-    ]},
-    {id:'th5',role:'minister',name:'王悦',sub:'外联部成员',avatar:5,msgs:[
-      {from:'them',text:'部长，我想报名外联宣讲的主持岗。',time:'11:02'},
-      {from:'me',text:'可以，先在任务大厅提交报名，我来审核。',time:'11:05'}
-    ]},
-    {id:'th6',role:'minister',name:'孙瑶',sub:'外联部成员',avatar:23,msgs:[
-      {from:'them',text:'物料对接这块我之前做过，可以分配给我。',time:'10:48'}
-    ]},
-    {id:'th7',role:'member',name:'陈昊',sub:'外联部部长',avatar:32,msgs:[
-      {from:'them',text:'外联宣讲还缺两个名额，你可以看看。',time:'10:30'},
-      {from:'me',text:'好的部长，我这就去任务大厅报名。',time:'10:32'}
-    ]},
-    {id:'th8',role:'member',name:'李思远',sub:'社长 · 主席团',avatar:12,msgs:[
-      {from:'them',text:'欢迎加入未央社，有任何问题随时找我。',time:'昨天'}
-    ]}
-  ]
+
 };
 
 /* =========================================================
@@ -1076,9 +1039,7 @@ function renderMain(){
   const fn = map[state.page] || pageDashboard;
   document.getElementById('main').innerHTML = fn();
   if(state.__anim){ applyStagger(); state.__anim = false; }
-  if(state.page==='messages'){
-    setTimeout(()=>{ const b=document.getElementById('chatBody'); if(b) b.scrollTop=b.scrollHeight; },30);
-  }
+
 }
 
 /* =========================================================
@@ -1612,43 +1573,7 @@ function pageAnnouncements(){
 /* =========================================================
    页面 · 资产管理
    ========================================================= */
-function pageAssets(){
-  const rows = DB.assets.map(a=>`
-    <tr class="hover:bg-zinc-50/60 transition-colors">
-      <td class="px-5 py-4">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-zinc-100 text-zinc-500 flex items-center justify-center">${icon('box','w-4 h-4')}</div>
-          <span class="font-medium text-zinc-900">${a.name}</span>
-        </div>
-      </td>
-      <td class="px-5 py-4 text-zinc-600">${a.qty}</td>
-      <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 text-[12px]">${a.dept}</span></td>
-      <td class="px-5 py-4">${statusBadge(a.status==='在用'?'进行中':'已结束').replace('进行中','在用').replace('已结束','闲置')}</td>
-      <td class="px-5 py-4 text-zinc-700">${a.keeper}</td>
-      <td class="px-5 py-4 text-right">
-        <button onclick="toast('已进入编辑：${a.name}')" class="text-[12px] font-medium text-ink-900 hover:text-blue-600 transition-colors">编辑</button>
-      </td>
-    </tr>`).join('');
-
-  return `
-  ${pageHead('资产管理', '登记社团公共物资，掌握调用与保管情况。',
-    `${searchBox('搜索资产','w-56')}${primaryBtn('新增资产','toast(\'新增资产\')')}`)}
-  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-zinc-400 bg-zinc-50/60">
-          <th class="px-5 py-3 font-medium">资产名称</th>
-          <th class="px-5 py-3 font-medium">数量</th>
-          <th class="px-5 py-3 font-medium">归属部门</th>
-          <th class="px-5 py-3 font-medium">状态</th>
-          <th class="px-5 py-3 font-medium">保管人</th>
-          <th class="px-5 py-3 font-medium text-right">操作</th>
-        </tr></thead>
-        <tbody class="divide-y divide-zinc-100">${rows}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
+function pageAssets(){ return M7M8.pageAssets(); }
 
 /* =========================================================
    页面 · 子任务管理（部长）
@@ -2240,91 +2165,13 @@ function pageMyOutputs(){
 /* =========================================================
    页面 · 沟通中心
    ========================================================= */
-function pageMessages(){
-  const threads = DB.threads.filter(t=>t.role===state.role);
-  const active = threads.find(t=>t.id===state.params.thread) || threads[0];
-
-  const listHtml = threads.map(t=>{
-    const last = t.msgs[t.msgs.length-1];
-    const on = t.id===active.id;
-    return `<button onclick="openThread('${t.id}')" class="w-full text-left px-4 py-3.5 border-b border-zinc-100 transition-colors ${on?'bg-zinc-50':'hover:bg-zinc-50/60'}">
-      <div class="flex items-center gap-3">
-        ${avatarImg(t.avatar,'w-9 h-9')}
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center justify-between gap-2">
-            <p class="text-[13px] font-medium text-zinc-900 truncate">${t.name}</p>
-            <span class="text-[10px] text-zinc-400 shrink-0">${last.time}</span>
-          </div>
-          <p class="text-[11px] text-zinc-400 truncate mt-0.5">${last.from==='me'?'我：':''}${last.text}</p>
-        </div>
-      </div>
-    </button>`;
-  }).join('');
-
-  const msgsHtml = active.msgs.map(m=>{
-    const me = m.from==='me';
-    return `<div class="flex ${me?'justify-end':'justify-start'}">
-      <div class="max-w-[75%]">
-        <div class="px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed ${me?'bg-ink-900 text-white rounded-br-md':'bg-zinc-100 text-zinc-700 rounded-bl-md'}">${m.text}</div>
-        <p class="text-[10px] text-zinc-400 mt-1 ${me?'text-right':''}">${m.time}</p>
-      </div>
-    </div>`;
-  }).join('');
-
-  const roleHint = { president:'可与部长、成员单独沟通', minister:'可与主席团、成员单独沟通', member:'可与部长、主席团单独沟通' }[state.role];
-
-  return `
-  ${pageHead('沟通中心', roleHint, '')}
-  <div class="bg-white rounded-2xl border border-zinc-200 shadow-soft overflow-hidden" style="height:calc(100vh - 220px);min-height:520px">
-    <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] h-full">
-      <div class="border-r border-zinc-100 flex flex-col min-h-0">
-        <div class="px-4 py-3.5 border-b border-zinc-100">
-          <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">${icon('search','w-3.5 h-3.5')}</span>
-            <input type="text" placeholder="搜索联系人" class="w-full pl-8 pr-3 py-2 text-[12px] rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
-          </div>
-        </div>
-        <div class="flex-1 overflow-y-auto min-h-0">${listHtml}</div>
-      </div>
-
-      <div class="flex flex-col min-h-0">
-        <div class="h-14 px-5 flex items-center justify-between border-b border-zinc-100 shrink-0">
-          <div class="flex items-center gap-3">
-            ${avatarImg(active.avatar,'w-8 h-8')}
-            <div>
-              <p class="text-[13px] font-medium text-zinc-900">${active.name}</p>
-              <p class="text-[11px] text-zinc-400">${active.sub}</p>
-            </div>
-          </div>
-          ${badge('在线','green')}
-        </div>
-        <div id="chatBody" class="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/40 min-h-0">${msgsHtml}</div>
-        <div class="p-4 border-t border-zinc-100 shrink-0">
-          <form onsubmit="event.preventDefault(); sendMsg('${active.id}')" class="flex items-center gap-2">
-            <input id="chatInput" type="text" placeholder="输入消息，回车发送…" class="flex-1 px-4 py-2.5 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-ink-900/10 focus:border-ink-900" />
-            <button type="submit" class="w-10 h-10 rounded-xl bg-ink-900 hover:bg-ink-800 active:scale-95 text-white flex items-center justify-center transition-all">${icon('send','w-4 h-4')}</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
+function pageMessages(){ return M7M8.pageMessages(); }
 
 /* =========================================================
    交互动作
    ========================================================= */
-function openThread(id){ state.params = { thread:id }; renderMain(); }
-
-function sendMsg(threadId){
-  const input = document.getElementById('chatInput');
-  const text = (input.value||'').trim();
-  if(!text) return;
-  const th = DB.threads.find(t=>t.id===threadId);
-  if(th){
-    th.msgs.push({ from:'me', text, time:'刚刚' });
-  }
-  renderMain();
-}
+function openThread(id){ return M7M8.openContact(Number(id)); }
+function sendMsg(){ return M7M8.send(); }
 
 function setFilter(t){ state.filter = t; renderMain(); }
 
@@ -2695,5 +2542,7 @@ function taskName(id){ const t = DB.tasks.find(x=>x.id===id); return t?t.name:'�
   document.getElementById('li3').innerHTML = icon('sparkle','w-4 h-4');
 })();
 </script>
+<script src="scripts/club-api.js"></script>
+<script src="scripts/m7-m8.js"></script>
 </body>
 </html>
