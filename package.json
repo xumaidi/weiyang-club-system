@@ -1,0 +1,6 @@
+{
+  "name": "weiyang-club-system-ui",
+  "private": true,
+  "scripts": {"test": "node --test test/*.test.cjs"},
+  "engines": {"node": ">=18"}
+}
